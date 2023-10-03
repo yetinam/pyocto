@@ -6,6 +6,7 @@
 #define OCTO_ASSOCIATOR_TYPES_H
 
 #include <algorithm>
+#include <ciso646> // For windows compatibility
 #include <map>
 #include <stdlib.h>
 #include <string>

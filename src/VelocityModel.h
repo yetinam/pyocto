@@ -5,6 +5,7 @@
 #ifndef OCTO_ASSOCIATOR_SRC_VELOCITYMODEL_H_
 #define OCTO_ASSOCIATOR_SRC_VELOCITYMODEL_H_
 
+#include <ciso646> // For windows compatibility
 #include <map>
 #include <stdlib.h>
 #include <utility>

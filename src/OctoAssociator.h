@@ -13,6 +13,7 @@
 #define QUEUE_PRIORITY 1
 
 #include <algorithm>
+#include <ciso646> // For windows compatibility
 #include <mutex>
 #include <queue>
 #include <set>
