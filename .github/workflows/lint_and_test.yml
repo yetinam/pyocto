@@ -1,0 +1,47 @@
+# This workflow runs on every push to main. It does the following:
+#   1. Checks if black formatting is followed.
+#   2. Runs all tests.
+
+name: lint_and_test
+on:
+  pull_request:
+  push:
+    branches:
+      - 'main*'
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v3
+    - uses: pre-commit/action@v3.0.0
+
+  run_tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
+        # python-version: ['3.9', '3.10', '3.11']
+        python-version: ['3.11']
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetched tags too
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .[test]
+
+      - name: Test with pytest
+        run: |
+          pytest tests/
