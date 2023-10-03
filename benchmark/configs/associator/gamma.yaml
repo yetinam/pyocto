@@ -1,0 +1,4 @@
+_target_: benchmark.wrappers.GammaAssociator
+
+config:
+  ncpu: 15  # One less than cores as suggested

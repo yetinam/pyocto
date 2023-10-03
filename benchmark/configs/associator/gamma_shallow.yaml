@@ -1,0 +1,32 @@
+defaults:
+  - gamma
+  - _self_
+
+crs:
+  _target_: pyproj.CRS.from_epsg
+  code: 9155  # SIRGAS-Chile 2016 / UTM zone 19S
+
+config:
+  x(km): [395., 605.]
+  y(km): [7560., 7790.]
+  z(km): [0, 30.]
+
+  vel:
+    p: 6.3
+    s: 3.7
+
+  dims: ["x(km)", "y(km)", "z(km)"]
+  use_dbscan: True
+  use_amplitude: False
+
+  method: "BGMM"
+  oversample_factor: 4
+
+  dbscan_eps: 25  # seconds
+  dbscan_min_samples: 3
+
+  # Filtering
+  min_picks_per_eq: 10
+  max_sigma11: 2.0
+  max_sigma22: 1.0
+  max_sigma12: 1.0

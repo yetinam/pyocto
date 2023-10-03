@@ -1,0 +1,26 @@
+defaults:
+  - pyocto
+  - _self_
+
+crs:
+  _target_: pyproj.CRS.from_epsg
+  code: 9155  # WGS 84 / UTM zone 10N
+
+config:
+  xlim: [250, 600]
+  ylim: [7200, 8000]
+  zlim: [0., 250.]
+
+  time_before: 300.
+
+  n_picks: 10
+  n_p_picks: 2
+  n_s_picks: 2
+  n_p_and_s_picks: 4
+  pick_match_tolerance: 1.5
+
+  velocity_model:
+    _target_: pyocto.VelocityModel1D
+    path: /home/munchmej/code/octo-associator/data/chile_tt
+
+    tolerance: 1.5

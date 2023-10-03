@@ -1,0 +1,14 @@
+name: chile
+
+stations:
+  _target_: pandas.read_csv
+  filepath_or_buffer: synthetics/base/chile_ipoc_stations.csv
+
+candidates:
+  _target_: pandas.read_csv
+  filepath_or_buffer: synthetics/base/chile_candidates.csv
+
+tt_conf:
+  model:
+    _target_: pandas.read_csv
+    filepath_or_buffer: synthetics/base/graeber.csv

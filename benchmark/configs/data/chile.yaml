@@ -1,0 +1,2 @@
+_target_: benchmark.eval.load_data
+path: synthetics/chile_50_0.1

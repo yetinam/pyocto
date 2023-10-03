@@ -1,0 +1,9 @@
+hydra-core==1.3.2
+omegaconf==2.3.0
+pyarrow==12.0.1
+pandas==2.0.3
+pyproj==3.4.1
+pyrocko==2023.6.29
+obspy==1.4.0
+# pyocto
+GMMA @ git+https://github.com/AI4EPS/GaMMA/@8110f373bbfe1d38495afd6fa1e9f45bafcc401c

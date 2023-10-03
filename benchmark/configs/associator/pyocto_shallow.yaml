@@ -1,0 +1,27 @@
+defaults:
+  - pyocto
+  - _self_
+
+crs:
+  _target_: pyproj.CRS.from_epsg
+  code: 9155  # WGS 84 / UTM zone 10N
+
+config:
+  xlim: [395., 605.]
+  ylim: [7560., 7790.]
+  zlim: [0., 30.]
+
+  time_before: 300.
+
+  n_picks: 10
+  n_p_picks: 2
+  n_s_picks: 2
+  n_p_and_s_picks: 4
+  pick_match_tolerance: 2.0
+
+  velocity_model:
+    _target_: pyocto.VelocityModel0D
+
+    p_velocity: 6.3
+    s_velocity: 3.7
+    tolerance: 2.0

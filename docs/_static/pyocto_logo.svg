@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="91.163116mm"
+   height="20.130333mm"
+   viewBox="0 0 91.163115 20.130333"
+   version="1.1"
+   id="svg8"
+   inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"
+   sodipodi:docname="pyocto_logo_subtitle.svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="2"
+     inkscape:cx="185.2873"
+     inkscape:cy="127.13307"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1151"
+     inkscape:window-x="0"
+     inkscape:window-y="25"
+     inkscape:window-maximized="1"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-21.99109,-122.14781)">
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.40277863px;line-height:1.25;font-family:Verdana;-inkscape-font-specification:Verdana;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.42224967"
+       x="48.232563"
+       y="137.94162"
+       id="text828"
+       inkscape:export-filename="C:\Users\jwool\Documents\Liverpool\AutoPicking\seisbench\docs\_static\seisbench_logo.png"
+       inkscape:export-xdpi="300"
+       inkscape:export-ydpi="300"><tspan
+         sodipodi:role="line"
+         id="tspan826"
+         x="48.232563"
+         y="137.94162"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Raleway;-inkscape-font-specification:Raleway;stroke-width:0.42224967">PyOcto</tspan></text>
+    <rect
+       style="fill:#000000;fill-opacity:0;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect822"
+       width="25.390606"
+       height="18.976137"
+       x="22.16609"
+       y="122.32301" />
+    <rect
+       style="fill:#e6e6e6;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect824"
+       width="13.279156"
+       height="18.976341"
+       x="34.277538"
+       y="122.32281" />
+    <rect
+       style="fill:#000000;fill-opacity:0;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect826"
+       width="13.252429"
+       height="9.6085405"
+       x="34.277538"
+       y="122.32281" />
+    <rect
+       style="fill:#c8c8c8;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect828"
+       width="6.8755093"
+       height="9.5883026"
+       x="40.654461"
+       y="122.34306" />
+    <rect
+       style="fill:#000000;fill-opacity:0;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect830"
+       width="6.3785586"
+       height="4.1861267"
+       x="34.275906"
+       y="127.74524" />
+    <rect
+       style="fill:#000000;fill-opacity:0;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect832"
+       width="3.2002563"
+       height="4.1832299"
+       x="34.275906"
+       y="127.74524" />
+    <rect
+       style="fill:#646464;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect834"
+       width="3.1749983"
+       height="2.1668174"
+       x="34.301163"
+       y="129.76164" />
+    <rect
+       style="fill:#aaaaaa;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect836"
+       width="6.3769259"
+       height="5.4224315"
+       x="34.277538"
+       y="122.32281" />
+    <rect
+       style="fill:#8c8c8c;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect838"
+       width="3.178299"
+       height="4.1861267"
+       x="37.476162"
+       y="127.74524" />
+    <rect
+       style="fill:#828282;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect840"
+       width="3.2002563"
+       height="2.0164032"
+       x="34.275906"
+       y="127.74524" />
+    <rect
+       style="fill:#fafafa;fill-opacity:1;stroke:#000000;stroke-width:0.34999999;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect842"
+       width="12.111447"
+       height="18.976135"
+       x="22.16609"
+       y="122.32301" />
+  </g>
+</svg>

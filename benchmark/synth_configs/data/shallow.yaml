@@ -1,0 +1,20 @@
+name: shallow
+
+stations:
+  _target_: benchmark.synthetics.grid_stations
+  nx: 10
+  ny: 10
+  xlim: [-22, -20]
+  ylim: [-70, -68]
+
+candidates:
+  _target_: benchmark.synthetics.random_events
+  n: 10000
+  xlim: [ -22, -20 ]
+  ylim: [ -70, -68 ]
+  zlim: [ 0, 30 ]
+
+tt_conf:
+  model:
+    _target_: pandas.read_csv
+    filepath_or_buffer: synthetics/base/graeber.csv

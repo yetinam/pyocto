@@ -1,0 +1,7 @@
+defaults:
+  - data: chile.yaml
+  - associator: pyocto_chile.yaml
+  - _self_
+
+log_level: DEBUG
+base_path: pred

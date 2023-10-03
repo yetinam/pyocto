@@ -1,0 +1,9 @@
+_target_: benchmark.wrappers.REALAssociator
+
+p_picks: 4
+s_picks: 4
+total_picks: 10
+p_and_s_picks: 4
+max_residual_std: 2.0
+min_p_to_s_separation: 0.
+event_separation_sec: 0.1

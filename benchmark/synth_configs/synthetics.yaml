@@ -1,0 +1,10 @@
+defaults:
+  - data: chile.yaml
+  - _self_
+
+output_base: synthetics
+base:
+  n_events: 50
+  noise_factor: 0.1
+
+log_level: DEBUG

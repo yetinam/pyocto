@@ -1,0 +1,18 @@
+defaults:
+  - real
+  - _self_
+
+search_range_horizontal_deg: 1.0
+search_range_vertical_km: 250
+grid_size_horizontal_deg: 0.1
+grid_size_vertical_km: 10
+vp: 7.0
+vs: 4.0
+shallow_vp: 5.3
+shallow_vs: 3.1
+elevation_correction: True
+
+velocity_model: /home/munchmej/code/octo-associator/benchmark/synthetics/base/graeber.nd
+tt_range_horizontal_deg: 6
+tt_grid_size_horizontal_deg: 0.05
+tt_grid_size_vertical_km: 3

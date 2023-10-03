@@ -1,0 +1,138 @@
+import logging
+
+import pandas as pd
+import pytest
+from pyproj import CRS
+
+import pyocto
+
+
+def test_get_crs():
+    stations = pd.DataFrame(
+        {
+            "latitude": [5, 7, 8, 9, 10],
+            "longitude": [-20, -10, -15, -17.5, -19.2],
+        }
+    )
+    crs = pyocto.OctoAssociator.get_crs(stations)
+    crs_dict = crs.to_dict()
+
+    assert crs_dict["lat_0"] == 7.5
+    assert crs_dict["lon_0"] == -15.0
+
+    # Longitude discontinuity - left side
+    stations = pd.DataFrame(
+        {
+            "latitude": [-20, -10, -15, -19.2],
+            "longitude": [178, 178.1, -179, -179.5],
+        }
+    )
+    crs = pyocto.OctoAssociator.get_crs(stations)
+    crs_dict = crs.to_dict()
+
+    assert crs_dict["lat_0"] == -15.0
+    assert crs_dict["lon_0"] == 179.5
+
+    # Longitude discontinuity - right side
+    stations = pd.DataFrame(
+        {
+            "latitude": [-20, -10, -15, -19.2],
+            "longitude": [-178, -178.1, 179, 179.5],
+        }
+    )
+    crs = pyocto.OctoAssociator.get_crs(stations)
+    crs_dict = crs.to_dict()
+
+    assert crs_dict["lat_0"] == -15.0
+    assert crs_dict["lon_0"] == -179.5
+
+
+def test_get_crs_warning(caplog):
+    caplog.clear()
+    stations = pd.DataFrame(
+        {
+            "latitude": [5, 10],
+            "longitude": [-20, -10],
+        }
+    )
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator.get_crs(stations, warning_limit_deg=15.0)
+    assert "inaccurate" not in caplog.text
+
+    caplog.clear()
+    stations = pd.DataFrame(
+        {
+            "latitude": [5, 25],
+            "longitude": [-20, -10],
+        }
+    )
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator.get_crs(stations, warning_limit_deg=15.0)
+    assert "inaccurate" in caplog.text
+
+    caplog.clear()
+    stations = pd.DataFrame(
+        {
+            "latitude": [5, 10],
+            "longitude": [-20, 10],
+        }
+    )
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator.get_crs(stations, warning_limit_deg=15.0)
+    assert "inaccurate" in caplog.text
+
+
+def test_unit_assertion():
+    velocity_model = pyocto.VelocityModel0D(7.0, 4.0, 2.0)
+    associator = pyocto.OctoAssociator((0, 1), (0, 1), (0, 1), velocity_model, 300)
+
+    associator.crs = CRS.from_proj4("+proj=tmerc +units=km")
+    assert not associator._meter_model
+
+    associator.crs = CRS.from_proj4("+proj=tmerc +units=m")
+    assert associator._meter_model
+
+    with pytest.raises(AssertionError):
+        associator.crs = CRS.from_proj4("+proj=tmerc +units=mm")
+
+
+@pytest.mark.parametrize(
+    "velocity_model_1d",
+    [False, True],
+)
+def test_associate(tmp_path, velocity_model_1d):
+    if velocity_model_1d:
+        model_path = tmp_path / "model"
+        layers = pd.read_csv("tests/data/graeber.csv")
+        pyocto.VelocityModel1D.create_model(layers, 1, 400, 250, model_path)
+        velocity_model = pyocto.VelocityModel1D(model_path, 2.0)
+    else:
+        velocity_model = pyocto.VelocityModel0D(7.0, 4.0, 2.0)
+
+    stations = pd.read_parquet("tests/data/stations")
+    picks = pd.read_parquet("tests/data/picks")
+    picks["time"] = picks["time"].apply(lambda x: x.timestamp())
+
+    crs = CRS.from_epsg(9155)
+
+    associator = pyocto.OctoAssociator(
+        xlim=(250.0, 600.0),
+        ylim=(7200.0, 8000.0),
+        zlim=(0.0, 250.0),
+        time_before=300.0,
+        velocity_model=velocity_model,
+        n_picks=10,
+        n_p_picks=2,
+        n_s_picks=2,
+        n_p_and_s_picks=4,
+        pick_match_tolerance=2.0,
+        crs=crs,
+    )
+
+    associator.transform_stations(stations)
+
+    events, assignments = associator.associate(picks, stations)
+
+    # There are 50 events contained so this is a fairly easy condition.
+    assert len(events) > 25
+    assert len(assignments) > 500
