@@ -6,6 +6,7 @@
 #define OCTO_ASSOCIATOR_SRC_VELOCITYMODEL_H_
 
 #include <map>
+#include <stdlib.h>
 #include <utility>
 #include <vector>
 

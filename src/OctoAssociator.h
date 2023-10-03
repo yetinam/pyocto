@@ -16,6 +16,7 @@
 #include <mutex>
 #include <queue>
 #include <set>
+#include <stdlib.h>
 #include <string>
 #include <thread>
 #include <vector>

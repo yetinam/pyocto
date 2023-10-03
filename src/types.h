@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <map>
+#include <stdlib.h>
 #include <string>
 #include <vector>
 
