@@ -3,7 +3,7 @@ import logging
 import struct
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -95,7 +95,6 @@ class VelocityModel1D(VelocityModel):
             model.add_station(station)
         return model
 
-    # TODO: Fix method if confronted with negative depth or depth deeper than zdist
     @staticmethod
     def create_model(
         model: pd.DataFrame,
@@ -140,6 +139,10 @@ class VelocityModel1D(VelocityModel):
             vs1 = model.iloc[i]["vs"]
             vs2 = model.iloc[i + 1]["vs"]
 
+            depth1, depth2, vp1, vp2, vs1, vs2 = VelocityModel1D._adjust_depth_velocity(
+                depth1, depth2, vp1, vp2, vs1, vs2, zdist
+            )
+
             p_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
                 vp1, vp2, int(depth2 / delta) - int(depth1 / delta)
             )
@@ -158,6 +161,54 @@ class VelocityModel1D(VelocityModel):
             f.write(struct.pack("iid", nx, nz, delta))
             f.write(p_times.tobytes())
             f.write(s_times.tobytes())
+
+    @staticmethod
+    def _adjust_depth_velocity(
+        depth1: float,
+        depth2: float,
+        vp1: float,
+        vp2: float,
+        vs1: float,
+        vs2: float,
+        zdist: float,
+    ) -> Tuple[float, float, float, float, float, float]:
+        """
+        Clip the interval [depth1, depth2] to lie fully within [0, zdist].
+        Interpolates vp1 and vp2 linearly in between.
+
+        :param depth1:
+        :param depth2:
+        :param vp1:
+        :param vp2:
+        :param vs1:
+        :param vs2:
+        :param zdist:
+        :return:
+        """
+        slope_p = (vp2 - vp1) / (depth2 - depth1)
+        depth_ref = depth1
+        v_p_ref = vp1
+
+        def func_vp(depth: float) -> float:
+            return v_p_ref + (depth - depth_ref) * slope_p
+
+        slope_s = (vs2 - vs1) / (depth2 - depth1)
+        v_s_ref = vs1
+
+        def func_vs(depth: float) -> float:
+            return v_s_ref + (depth - depth_ref) * slope_s
+
+        depth1 = min(max(depth1, 0), zdist)
+        depth2 = min(max(depth2, 0), zdist)
+
+        return (
+            depth1,
+            depth2,
+            func_vp(depth1),
+            func_vp(depth2),
+            func_vs(depth1),
+            func_vs(depth2),
+        )
 
 
 class OctoAssociator:

@@ -136,3 +136,64 @@ def test_associate(tmp_path, velocity_model_1d):
     # There are 50 events contained so this is a fairly easy condition.
     assert len(events) > 25
     assert len(assignments) > 500
+
+
+def test_create_model(tmp_path):
+    model = pd.DataFrame(
+        {
+            "depth": [0, 10, 50, 100],
+            "vp": [4, 5, 6, 7],
+            "vs": [3, 4, 5, 6],
+        }
+    )
+
+    # Regular call
+    pyocto.VelocityModel1D.create_model(model, 2, 200, 100, tmp_path / "test")
+
+    # zdist shallower than deepest element
+    pyocto.VelocityModel1D.create_model(model, 2, 200, 20, tmp_path / "test")
+
+    # Negative entry
+    model = pd.DataFrame(
+        {
+            "depth": [-5, 10, 50, 100],
+            "vp": [4, 5, 6, 7],
+            "vs": [3, 4, 5, 6],
+        }
+    )
+    pyocto.VelocityModel1D.create_model(model, 2, 200, 100, tmp_path / "test")
+
+
+def test_adjust_depth_velocity():
+    # No cutoff
+    depth1, depth2, vp1, vp2, vs1, vs2 = pyocto.VelocityModel1D._adjust_depth_velocity(
+        5, 15, 1, 2, 3, 4, 20
+    )
+    assert depth1 == 5
+    assert depth2 == 15
+    assert vp1 == 1
+    assert vp2 == 2
+    assert vs1 == 3
+    assert vs2 == 4
+
+    # Deep cutoff
+    depth1, depth2, vp1, vp2, vs1, vs2 = pyocto.VelocityModel1D._adjust_depth_velocity(
+        5, 15, 1, 2, 3, 4, 10
+    )
+    assert depth1 == 5
+    assert depth2 == 10
+    assert vp1 == 1
+    assert vp2 == 1.5
+    assert vs1 == 3
+    assert vs2 == 3.5
+
+    # Shallow cutoff
+    depth1, depth2, vp1, vp2, vs1, vs2 = pyocto.VelocityModel1D._adjust_depth_velocity(
+        -5, 5, 1, 2, 3, 4, 10
+    )
+    assert depth1 == 0
+    assert depth2 == 5
+    assert vp1 == 1.5
+    assert vp2 == 2
+    assert vs1 == 3.5
+    assert vs2 == 4
