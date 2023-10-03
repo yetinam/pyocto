@@ -9,7 +9,6 @@ Welcome to PyOcto!
 .. todo::
     Create and link colab notebook.
     Update paper reference.
-    Link to Github (make sure local install is explained there).
 
 PyOcto is a high-throughput seismic phase associator.
 The best way to get started with PyOcto is through our interactive example.

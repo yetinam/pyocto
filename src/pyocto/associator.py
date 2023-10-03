@@ -1,3 +1,4 @@
+import datetime
 import logging
 import struct
 from abc import ABC, abstractmethod
@@ -160,7 +161,6 @@ class VelocityModel1D(VelocityModel):
 
 
 class OctoAssociator:
-    # TODO: Add NLL output interface to docstring
     """
     The OctoAssociator is the main class of PyOcto. An instance of this associator
     describes the configuration of the algorithm. To start the actual association,
@@ -175,6 +175,9 @@ class OctoAssociator:
     :py:func:`get_crs`. For coordinate projections, :py:func:`transform_stations`
     and :py:func:`transform_events` are useful helper functions. To convert obspy
     inventory object to station data frames for PyOcto, use :py:func:`inventory_to_df`.
+
+    As the PyOcto output locations are only preliminary, there is a helper function to
+    convert the outputs to the NonLinLoc input format. Check out :py:func:`to_nonlinloc`.
 
     This documentation explains all parameters from a technical perspective.
     For a more user-centric view on how to set appropriate parameters,
@@ -793,3 +796,32 @@ class OctoAssociator:
         events["depth"] = events["z"]
 
         return events
+
+    @staticmethod
+    def to_nonlinloc(assignments: pd.DataFrame, path: Union[str, Path]) -> None:
+        """
+        Write the outputs to the .obs format that can be parsed by NonLinLoc
+
+        :param assignments: The assignments as output by PyOcto
+        :param path: Output path for the observations
+        """
+        with open(path, "w") as f:
+            for event_idx, event_catalog in assignments.groupby("event_idx"):
+                f.write(f"PUBLIC_ID E{event_idx:08d}\n")
+                for _, pick in event_catalog.iterrows():
+                    # Example: GRX    ?    ?    ? P      U 19940217 2216   44.9200 GAU  2.00e-02 -1.00e+00 -1.00e+00 -1.00e+00
+                    if isinstance(pick["time"], datetime.datetime):
+                        time = pick["time"]
+                    else:
+                        time = datetime.datetime.fromtimestamp(pick["time"])
+                    phase = pick["phase"].upper()
+                    station = pick["station"]
+                    daystr = time.strftime("%Y%m%d")
+                    hourmin = time.strftime("%H%M")
+                    second = time.strftime("%S.%f")[:-2]
+
+                    f.write(
+                        f"{station:6s} ?    ?    ? {phase}      ? {daystr} {hourmin}   {second} "
+                        f"GAU  2.00e-02 -1.00e+00 -1.00e+00 -1.00e+00\n"
+                    )
+                f.write("\n")
