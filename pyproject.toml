@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
     { name = "My Name", email = "me@email.com" },
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
