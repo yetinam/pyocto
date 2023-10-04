@@ -52,7 +52,9 @@ struct Station {
 
 class StationCompare {
 public:
-  bool operator()(const Station &a, const Station &b) { return a.id < b.id; }
+  bool operator()(const Station &a, const Station &b) const {
+    return a.id < b.id;
+  }
 };
 
 class Volume {

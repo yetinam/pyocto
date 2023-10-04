@@ -8,16 +8,20 @@
 #include <csignal>
 #include <pybind11/pybind11.h>
 #include <queue>
+#ifndef SINGLE_THREAD
 #include <thread>
+#endif
 #include <vector>
 
 namespace py = pybind11;
 
 namespace octoassociator {
 
+#ifndef SINGLE_THREAD
 std::mutex events_mutex;
 std::mutex node_mutex;
 std::mutex thread_count_mutex;
+#endif
 volatile sig_atomic_t exitRequested = 0;
 
 unsigned long bin_search(double time, const std::vector<Pick *> &picks) {
@@ -95,6 +99,12 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
 
   std::set<Pick *> used_picks;
 
+#ifdef SINGLE_THREAD
+  unsigned int thread_count = config->n_threads;
+  py::gil_scoped_release release;
+  process_tree(events, active_nodes, 0, thread_count);
+  py::gil_scoped_acquire acquire;
+#else
   std::vector<std::thread> threads;
   unsigned int thread_count = config->n_threads;
   threads.reserve(config->n_threads);
@@ -117,15 +127,12 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
   for (auto &thread : threads)
     thread.join();
   py::gil_scoped_acquire acquire;
-
-  // unsigned int thread_count = config->n_threads;
-  // process_tree(events, active_nodes, 0, thread_count);
+#endif
 
   if (exitRequested)
     throw py::error_already_set(); // Throw error if interrupt was caught
 
   std::sort(events.begin(), events.end());
-  // printf("Followed %zu nodes\n", node_count);
 
   std::vector<Event> dedup_events;
   {
@@ -224,6 +231,17 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
   Node *node;
   while (true) {
     // printf("Thread %d - Loop start\n", thread_id);
+#ifdef SINGLE_THREAD
+    // As this check is not performed in the main loop anymore, it needs to be
+    // done here
+    if (node_count % 1000 == 0) {
+      py::gil_scoped_acquire acquire;
+      if (PyErr_CheckSignals() != 0) {
+        exitRequested = 1;
+      }
+    }
+#endif
+
     if (exitRequested)
       break; // Break with Ctrl-C
 
@@ -231,7 +249,9 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
       node = dfs_nodes.front();
       dfs_nodes.pop_front();
     } else if (active_nodes.empty()) { // Fetch new root note
+#ifndef SINGLE_THREAD
       std::lock_guard<std::mutex> node_lock(node_mutex);
+#endif
       if (base_nodes.empty())
         break; // Everything is already processed
       node = base_nodes.front();
@@ -293,7 +313,9 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
   }
 
   {
+#ifndef SINGLE_THREAD
     std::lock_guard<std::mutex> thread_count_lock(thread_count_mutex);
+#endif
     thread_count--;
     // printf("Thread %d exiting. New count %u.\n", thread_id, thread_count);
   }
@@ -350,7 +372,9 @@ bool OctoAssociator::create_event(
   }
 
   {
+#ifndef SINGLE_THREAD
     std::lock_guard<std::mutex> event_lock(events_mutex);
+#endif
     events.emplace_back(volume, new_picks, residuals);
   }
 
