@@ -25,6 +25,12 @@ You can install PyOcto directly through pip: ::
 Alternatively, you can install PyOcto from source by cloning the
 `PyOcto Github repository <https://github.com/yetinam/pyocto>`_.
 
+.. warning::
+
+    PyOcto uses POSIX threads for threading. As these are not available on Windows,
+    the Windows version is single-threaded. Therefore, we do not recommend running
+    larger computations on Windows.
+
 .. admonition:: Citation
 
    If you're using PyOcto in your work, please cite

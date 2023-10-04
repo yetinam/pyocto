@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import struct
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -345,6 +346,17 @@ class OctoAssociator:
         self._cached_pointers = (
             {}
         )  # References that need to be kept in memory to avoid automatic garbage collection
+
+        self._os_check()
+
+    def _os_check(self) -> None:
+        if self.n_threads is None or self.n_threads != -1:
+            if os.name == "nt":
+                logger.warning(
+                    "PyOcto does not support multi-threading on Windows. "
+                    "Only one thread will be used for association. "
+                    "Set n_threads=1 to suppress this warning."
+                )
 
     @property
     def crs(self) -> Optional[pyproj.CRS]:

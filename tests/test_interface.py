@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -197,3 +198,29 @@ def test_adjust_depth_velocity():
     assert vp2 == 2
     assert vs1 == 3.5
     assert vs2 == 4
+
+
+def test_windows_warning(caplog):
+    with patch("os.name", "posix"):
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            pyocto.OctoAssociator(
+                xlim=(250.0, 600.0),
+                ylim=(7200.0, 8000.0),
+                zlim=(0.0, 250.0),
+                time_before=300.0,
+                velocity_model=None,
+            )
+        assert "on Windows" not in caplog.text
+
+    with patch("os.name", "nt"):
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            pyocto.OctoAssociator(
+                xlim=(250.0, 600.0),
+                ylim=(7200.0, 8000.0),
+                zlim=(0.0, 250.0),
+                time_before=300.0,
+                velocity_model=None,
+            )
+        assert "on Windows" in caplog.text

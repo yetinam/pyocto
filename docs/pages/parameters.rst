@@ -102,6 +102,9 @@ Event locations show stripes
 PyOcto does not use all my CPU cores
 ------------------------------------
 
+* You're running on Windows? Unfortunately, PyOcto does not support multi-threading on Windows as the OS does not
+  support POSIX threads. For larger computations, we suggest switching to a different operating system. If you are
+  an experienced C++ developer and would like to add multi-threading support for Windows, we'd happily receive a PR.
 * By default, PyOcto will use all available cores. Check if you accidentally overwrote the `n_threads` variable to a
   lower values. It is generally not recommend to set `n_threads` to a higher number than the available cores as this
   will increase memory usage without significant runtime decreases.
