@@ -103,7 +103,7 @@ double VelocityModel0D::travel_time(const Volume &volume,
 }
 
 VelocityModel1D::VelocityModel1D(char *path) {
-  auto f = fopen(path, "r");
+  auto f = fopen(path, "rb");
   fread(&nx, 4, 1, f);
   fread(&nz, 4, 1, f);
   fread(&delta, 8, 1, f);
