@@ -24,7 +24,6 @@ jobs:
       matrix:
         # TODO: Activate full matrix
         os: [ubuntu-latest, macos-latest, windows-latest]
-        # os: [ubuntu-latest]
         # python-version: ['3.9', '3.10', '3.11']
         python-version: ['3.11']
 

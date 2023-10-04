@@ -36,6 +36,10 @@ pip install .[test]
 
 To verify your installation is working, use `pytest tests/`.
 
+**Warning:** PyOcto uses POSIX threads for threading. As these are not available on Windows,
+the Windows version is single-threaded. Therefore, we do not recommend running larger computations
+on Windows.
+
 ## References
 If you're using PyOcto in your work, please cite:
 

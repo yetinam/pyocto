@@ -12,6 +12,13 @@
 #define QUEUE_DFS 0
 #define QUEUE_PRIORITY 1
 
+// All Windows version are caught with this
+// As Windows does not have pthreads, currently only a single thread
+// implementation is available.
+#ifdef _WIN32
+#define SINGLE_THREAD
+#endif
+
 #include <algorithm>
 #include <ciso646> // For windows compatibility
 #include <mutex>
@@ -19,7 +26,9 @@
 #include <set>
 #include <stdlib.h>
 #include <string>
+#ifndef SINGLE_THREAD
 #include <thread>
+#endif
 #include <vector>
 
 #include "VelocityModel.h"
@@ -49,7 +58,11 @@ public:
   unsigned int n_p_picks = 5;
   unsigned int n_s_picks = 5;
   unsigned int n_p_and_s_picks = 3;
+#ifdef SINGLE_THREAD
+  unsigned int n_threads = 1;
+#else
   unsigned int n_threads = std::thread::hardware_concurrency();
+#endif
   unsigned int refinement_iterations = 3;
   unsigned int node_log_interval = 0;
   unsigned int location_split_depth = 6;
