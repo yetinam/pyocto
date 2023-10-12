@@ -37,3 +37,6 @@
 /benchmark/synthetics/
 /benchmark/pred/
 /docs/_build/
+/examples/graeber.csv
+/examples/picks
+/examples/stations

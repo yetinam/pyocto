@@ -49,6 +49,12 @@ bool VelocityModel0D::contains(const Volume &volume, const Pick *pick) {
   if (std::isnan(max_dist) or std::isnan(centroid_dist))
     return false;
 
+  if (min_dist > association_cutoff_distance)
+    return false; // Fail if outside cutoff distance
+
+  max_dist = std::min(max_dist,
+                      association_cutoff_distance); // Truncate maximum distance
+
   double velocity = get_phase_velocity(pick->phase);
 
   // First and last arrival time from a pick in the volume
@@ -99,7 +105,11 @@ double VelocityModel0D::travel_time(const Volume &volume,
       sqrt(pow(volume.x - station_obj.x, 2) + pow(volume.y - station_obj.y, 2) +
            pow(volume.z - station_obj.z, 2));
 
-  return dist / velocity + station_obj.residual(phase);
+  if (dist > location_cutoff_distance) {
+    return NAN;
+  } else {
+    return dist / velocity + station_obj.residual(phase);
+  }
 }
 
 VelocityModel1D::VelocityModel1D(char *path) {
@@ -138,6 +148,9 @@ double VelocityModel1D::travel_time(const Volume &volume,
 }
 
 double VelocityModel1D::travel_time(double x, double z, char phase) {
+  if (x > location_cutoff_distance)
+    return NAN;
+
   double *times;
   if (phase == 'P')
     times = p_times;
@@ -181,6 +194,10 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick) {
 
   auto min_dist = sqrt(pow(x_dist.first, 2) + pow(y_dist.first, 2));
   auto max_dist = sqrt(pow(x_dist.second, 2) + pow(y_dist.second, 2));
+
+  if (min_dist > association_cutoff_distance)
+    return false;
+  max_dist = std::min(association_cutoff_distance, max_dist);
 
   // Determine indices
   int ix_min = floor(min_dist / delta); // Take closer one (underestimate min)

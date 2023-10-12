@@ -39,9 +39,18 @@ public:
   double p_velocity;
   double s_velocity;
   double tolerance = 1; // Tolerance in seconds
+  double association_cutoff_distance =
+      1e9; // Ignore all travel times outside this range in km from contains
+           // queries
+  double location_cutoff_distance = 1e9; // Ignore all travel times outside this
+                                         // range in km for travel time queries
 
-  VelocityModel0D(double p_velocity, double s_velocity, double tolerance)
-      : p_velocity(p_velocity), s_velocity(s_velocity), tolerance(tolerance){};
+  VelocityModel0D(double p_velocity, double s_velocity, double tolerance,
+                  double association_cutoff_distance,
+                  double location_cutoff_distance)
+      : p_velocity(p_velocity), s_velocity(s_velocity), tolerance(tolerance),
+        association_cutoff_distance(association_cutoff_distance),
+        location_cutoff_distance(location_cutoff_distance){};
   bool contains(const Volume &volume, const Pick *pick) override;
   double travel_time(const Volume &volume, const std::string &station,
                      char phase) override;
@@ -54,6 +63,13 @@ public:
 class VelocityModel1D : public VelocityModel {
 public:
   double tolerance = 1.;
+  // Both distances hypocentral
+  double association_cutoff_distance =
+      1e9; // Ignore all travel times outside this range in km from contains
+           // queries
+  double location_cutoff_distance = 1e9; // Ignore all travel times outside this
+                                         // range in km for travel time queries
+
   double surface_p_velocity = 5.3;
   double surface_s_velocity = 3.1;
   explicit VelocityModel1D(char *path);

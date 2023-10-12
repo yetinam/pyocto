@@ -50,10 +50,16 @@ PyOcto runs for too long
   convergence as well. On the other hand, lower values for either of these parameters increase the susceptibility to
   local minima and might impact the location quality. Remember, `location_split_depth` always needs to be
   bigger than `location_split_return`.
+* Set (or reduce) the `association_cutoff_distance`. This distance defines picks up to which distance are included
+  in the space-partitioning search. Especially for large regions, this often makes sense as usually earthquakes are
+  substantially easier to detect at nearby stations. Note that further away stations will still be used for the
+  localisation process (and therefore be annotated in the assignments output). To limit these assignments, use the
+  `location_cutoff_distance` parameter. This will usually only have little impact on the runtime.
 * Increase `min_pick_fraction`. This value cuts off picks at stations with higher distance if closer stations did not
-  pick the event. This behaviour is especially helpful for deployments with large numbers of stations that are likely
-  to produce spurious associations from far away station sets. Reasonable values are between 0 and 0.7.
-  (Maybe even higher, depending on the noise characteristics and quality of your stations.)
+  pick the event. In contrast to the `association_cutoff_distance`, this is a relative parameter, i.e., it only removes
+  far away stations if closer stations exists. This behaviour is especially helpful for deployments with large numbers
+  of stations that are likely to produce spurious associations from far away station sets. Reasonable values are
+  between 0 and 0.7. (Maybe even higher, depending on the noise characteristics and quality of your stations.)
   Too high values will lead to missed events because good picks are discarded.
   Setting `min_pick_fraction` to zero will disable the distance check completely and thereby improve runtime.
   This is especially useful for smaller deployments.

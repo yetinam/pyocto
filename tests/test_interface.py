@@ -139,6 +139,49 @@ def test_associate(tmp_path, velocity_model_1d):
     assert len(assignments) > 500
 
 
+@pytest.mark.parametrize(
+    "velocity_model_1d",
+    [False, True],
+)
+def test_associate_cutoff(tmp_path, velocity_model_1d):
+    if velocity_model_1d:
+        model_path = tmp_path / "model"
+        layers = pd.read_csv("tests/data/graeber.csv")
+        pyocto.VelocityModel1D.create_model(layers, 1, 400, 250, model_path)
+        velocity_model = pyocto.VelocityModel1D(model_path, 2.0)
+    else:
+        velocity_model = pyocto.VelocityModel0D(7.0, 4.0, 2.0)
+
+    stations = pd.read_parquet("tests/data/stations")
+    picks = pd.read_parquet("tests/data/picks")
+    picks["time"] = picks["time"].apply(lambda x: x.timestamp())
+
+    crs = CRS.from_epsg(9155)
+
+    associator = pyocto.OctoAssociator(
+        xlim=(250.0, 600.0),
+        ylim=(7200.0, 8000.0),
+        zlim=(0.0, 250.0),
+        time_before=300.0,
+        velocity_model=velocity_model,
+        n_picks=10,
+        n_p_picks=2,
+        n_s_picks=2,
+        n_p_and_s_picks=4,
+        pick_match_tolerance=2.0,
+        crs=crs,
+    )
+
+    associator.transform_stations(stations)
+
+    velocity_model.association_cutoff_distance = 10
+    events, assignments = associator.associate(picks, stations)
+
+    # There are 50 events contained so this is a fairly easy condition.
+    assert len(events) == 0
+    assert len(assignments) == 0
+
+
 def test_create_model(tmp_path):
     model = pd.DataFrame(
         {

@@ -56,15 +56,23 @@ PYBIND11_MODULE(_core, m) {
   velocity_model.def("add_station", &VelocityModel::add_station);
 
   py::class_<VelocityModel0D>(m, "VelocityModel0D", velocity_model)
-      .def(py::init<double, double, double>())
+      .def(py::init<double, double, double, double, double>())
       .def_readwrite("p_velocity", &VelocityModel0D::p_velocity)
       .def_readwrite("s_velocity", &VelocityModel0D::s_velocity)
+      .def_readwrite("association_cutoff_distance",
+                     &VelocityModel0D::association_cutoff_distance)
+      .def_readwrite("location_cutoff_distance",
+                     &VelocityModel0D::location_cutoff_distance)
       .def_readwrite("tolerance", &VelocityModel0D::tolerance);
 
   py::class_<VelocityModel1D>(m, "VelocityModel1D", velocity_model)
       .def(py::init<char *>())
       .def_readwrite("surface_p_velocity", &VelocityModel1D::surface_p_velocity)
       .def_readwrite("surface_s_velocity", &VelocityModel1D::surface_s_velocity)
+      .def_readwrite("association_cutoff_distance",
+                     &VelocityModel1D::association_cutoff_distance)
+      .def_readwrite("location_cutoff_distance",
+                     &VelocityModel1D::location_cutoff_distance)
       .def_readwrite("tolerance", &VelocityModel1D::tolerance);
 
   py::class_<Pick>(m, "Pick")
