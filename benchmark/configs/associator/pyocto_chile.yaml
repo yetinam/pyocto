@@ -25,3 +25,5 @@ config:
     p_velocity: 7.0
     s_velocity: 4.0
     tolerance: 2.0
+
+    association_cutoff_distance: 250

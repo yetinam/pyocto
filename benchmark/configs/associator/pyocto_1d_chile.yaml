@@ -24,3 +24,4 @@ config:
     path: /home/munchmej/code/octo-associator/data/chile_tt
 
     tolerance: 1.5
+    association_cutoff_distance: 250
