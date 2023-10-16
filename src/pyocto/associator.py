@@ -647,6 +647,9 @@ class OctoAssociator:
             inplace=True,
         )
 
+        picks["time"] = picks["time"].apply(lambda x: x.timestamp())
+        picks["phase"] = picks["phase"].apply(str.upper)
+
         return self.associate(picks, stations)
 
     def associate_real(
