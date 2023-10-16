@@ -11,7 +11,7 @@ from datetime import datetime
 project = "PyOcto"
 copyright = f"{datetime.now().year}, Jannes Münchmeyer"
 author = "Jannes Münchmeyer"
-release = "0.0.1"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
