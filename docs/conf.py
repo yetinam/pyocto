@@ -51,4 +51,4 @@ html_theme_options = {
 # maximum_signature_line_length = 80
 
 # Display todos by setting to True
-todo_include_todos = True
+todo_include_todos = False

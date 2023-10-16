@@ -10,9 +10,16 @@
 [![DOI](https://zenodo.org/badge/DOI/xyz)](https://doi.org/xyz)
 
 PyOcto is a high-throughput seismic phase associator.
-The best way to get started with PyOcto is through our interactive example.
+The best way to get started with PyOcto is through our interactive examples:
+
+| Examples                             |                                                                                                                                                                                   |
+|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Basics                               | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yetinam/pyocto/blob/main/examples/01_basics.ipynb)          |
+| Velocity models                      | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yetinam/pyocto/blob/main/examples/02_velocity_models.ipynb) |
+| Interfaces                           | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yetinam/pyocto/blob/main/examples/03_interfaces.ipynb)      |
+
 If you're looking for further guidance, for example, a guide on how to set
-the associator parameters, check out the [PyOcto documentation](https://pyocto.readthedocs.org/).
+the associator parameters, check out the [PyOcto documentation](https://pyocto.readthedocs.io).
 
 ## Installation
 
