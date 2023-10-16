@@ -5,17 +5,13 @@
 
 from datetime import datetime
 
-# The rename is necessary to avoid namespace collision with the version attribute for RTD
-# See: https://github.com/sphinx-doc/sphinx/issues/10904
-from importlib.metadata import version as _version
-
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "PyOcto"
 copyright = f"{datetime.now().year}, Jannes Münchmeyer"
 author = "Jannes Münchmeyer"
-release = _version("pyocto")
+release = "0.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
