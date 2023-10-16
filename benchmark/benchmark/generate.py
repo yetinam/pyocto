@@ -25,6 +25,8 @@ name_lookup = {
     "real_1d": "REAL1D",
     "pyocto": "PyOcto",
     "pyocto_1d": "PyOcto1D",
+    "pyocto_cutoff": "PyOcto",
+    "pyocto_1d_cutoff": "PyOcto1D",
 }
 iquique_suffix = "_0.05"
 
@@ -75,6 +77,7 @@ class FunctionManager:
     def run_marker(self, marker):
         if marker == "all":
             for func in self.function_dict.values():
+                print(f"Running {func.__name__}")
                 func()
         else:
             for func in self.markers[marker]:
@@ -119,7 +122,7 @@ def get_benchmark_results() -> pd.DataFrame:
         return row["associator"] + tag
 
     def add_exp_tag(row):
-        if row["comment"] == "pyocto_exp1":
+        if row["comment"] == "pyocto_cutoff":
             return row["associator"] + "V1"
         return row["associator"]
 
@@ -137,6 +140,11 @@ def get_benchmark_results() -> pd.DataFrame:
     results["associator"] = results["associator"].apply(
         lambda x: x.replace("Associator", "")
     )
+
+    mask = (~results["associator"].isin(["PyOcto", "PyOcto1D"])) | (
+        results["comment"] == "pyocto_cutoff"
+    )
+    results = results[mask].copy()
 
     results.sort_values(
         ["exp", "events", "noise", "associator", "comment"], inplace=True
@@ -321,7 +329,7 @@ def full_benchmark_table():
 
 @manager.register_with_markers(["table", "paper"])
 def scenario_tables():
-    base = Path("synthetics")
+    base = Path("synthetcs")
     stats = []
     for path in base.iterdir():
         if not path.is_dir() or path.name == "base":
@@ -462,7 +470,7 @@ def benchmark_results():
 @manager.register_with_markers(["plot", "paper"])
 def iquique_sections():
     fig = plt.figure(figsize=(textwidth, 1.37 * textwidth))
-    exps = ["pyocto", "pyocto_1d", "real", "real_1d", "gamma"]
+    exps = ["pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d", "gamma"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
     axs = fig.subplots(
@@ -485,7 +493,7 @@ def iquique_sections():
 @manager.register_with_markers(["plot", "paper"])
 def iquique_maps():
     fig = plt.figure(figsize=(textwidth, 1.2 * textwidth))
-    exps = ["pyocto", "pyocto_1d", "real", "real_1d", "gamma"]
+    exps = ["pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d", "gamma"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
     axs = []
@@ -534,7 +542,7 @@ def iquique_maps():
 @manager.register_with_markers(["plot", "paper"])
 def iquique_rates():
     fig = plt.figure(figsize=(colwidth, 0.8 * textwidth))
-    exps = ["gamma", "pyocto", "pyocto_1d", "real", "real_1d"]
+    exps = ["gamma", "pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
     axs = fig.subplots(3, 1, sharex=True, gridspec_kw={"hspace": 0.06})
