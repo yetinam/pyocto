@@ -50,4 +50,4 @@ on Windows.
 ## References
 If you're using PyOcto in your work, please cite:
 
-Münchmeyer, J. (2023). PyOcto: A high-throughput seismic phase associator. *arxiv preprint*
+Münchmeyer, J. (2023). PyOcto: A high-throughput seismic phase associator. *Preprint at [arxiv.org/abs/2310.11157](https://arxiv.org/abs/2310.11157)*.

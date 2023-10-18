@@ -6,9 +6,6 @@
 Welcome to PyOcto!
 ==================================
 
-.. todo::
-    Update paper reference.
-
 PyOcto is a high-throughput seismic phase associator.
 The best way to get started with PyOcto is through our interactive examples.
 
@@ -67,8 +64,7 @@ Alternatively, you can install PyOcto from source by cloning the
 
    If you're using PyOcto in your work, please cite
 
-      Münchmeyer, J. (2023). PyOcto: A high-throughput seismic phase associator. *arxiv preprint*
-
+      Münchmeyer, J. (2023). PyOcto: A high-throughput seismic phase associator. Preprint at `arxiv.org/abs/2310.11157 <https://arxiv.org/abs/2310.11157>`_.
 
 .. toctree::
     :maxdepth: 2
