@@ -169,7 +169,12 @@ def get_benchmark_results() -> pd.DataFrame:
 
 
 @manager.register_with_markers(["plot", "paper"])
-def octotree_schematic():
+def octotree_schematic_empty():
+    octotree_schematic(empty=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def octotree_schematic(empty=False):
     np.random.seed(5005)
     fig = plt.figure(figsize=(textwidth, 0.4 * textwidth))
     ax = fig.add_subplot(111)
@@ -197,12 +202,13 @@ def octotree_schematic():
         p_picks += [(t, x) for t, x in zip(t_p, stations)]
         s_picks += [(t, x) for t, x in zip(t_s, stations)]
 
-        lw = 0.5
-        ax.plot([t0, t0 + 100], [x0, x0 + 100 * p_vel], "k-", lw=lw)
-        ax.plot([t0, t0 + 100], [x0, x0 - 100 * p_vel], "k-", lw=lw)
-        ax.plot([t0, t0 + 100], [x0, x0 + 100 * s_vel], "k--", lw=lw)
-        ax.plot([t0, t0 + 100], [x0, x0 - 100 * s_vel], "k--", lw=lw)
-        ax.plot(t0, x0, "r*")
+        if not empty:
+            lw = 0.5
+            ax.plot([t0, t0 + 100], [x0, x0 + 100 * p_vel], "k-", lw=lw)
+            ax.plot([t0, t0 + 100], [x0, x0 - 100 * p_vel], "k-", lw=lw)
+            ax.plot([t0, t0 + 100], [x0, x0 + 100 * s_vel], "k--", lw=lw)
+            ax.plot([t0, t0 + 100], [x0, x0 - 100 * s_vel], "k--", lw=lw)
+            ax.plot(t0, x0, "r*")
 
     p_noise = np.random.rand(17) * 40
     s_noise = np.random.rand(17) * 40
@@ -216,69 +222,75 @@ def octotree_schematic():
     p_picks = np.array(p_picks)
     s_picks = np.array(s_picks)
 
-    blocks = Queue()
-    blocks.put((global_xlim, global_ylim))
+    if not empty:
+        blocks = Queue()
+        blocks.put((global_xlim, global_ylim))
 
-    def min_max_dist(p, p0, p1):
-        return (
-            np.where(
-                (p0 < p) & (p < p1), 0, np.minimum(np.abs(p - p0), np.abs(p - p1))
-            ),
-            np.maximum(np.abs(p - p0), np.abs(p - p1)),
-        )
+        def min_max_dist(p, p0, p1):
+            return (
+                np.where(
+                    (p0 < p) & (p < p1), 0, np.minimum(np.abs(p - p0), np.abs(p - p1))
+                ),
+                np.maximum(np.abs(p - p0), np.abs(p - p1)),
+            )
 
-    def matching_picks(xlim, ylim, picks, vel):
-        ymin, ymax = min_max_dist(picks[:, 1], *ylim)
-        tmin = xlim[0] + ymin / vel
-        tmax = xlim[1] + ymax / vel
+        def matching_picks(xlim, ylim, picks, vel):
+            ymin, ymax = min_max_dist(picks[:, 1], *ylim)
+            tmin = xlim[0] + ymin / vel
+            tmax = xlim[1] + ymax / vel
 
-        return (tmin <= picks[:, 0]) & (picks[:, 0] < tmax)
+            return (tmin <= picks[:, 0]) & (picks[:, 0] < tmax)
 
-    cmap = plt.get_cmap("Blues")
+        cmap = plt.get_cmap("Blues")
 
-    def get_color(xlim, ylim, n_picks):
-        area = (xlim[1] - xlim[0]) * (ylim[1] - ylim[0])
-        return cmap(0.3 * n_picks / area)
+        def get_color(xlim, ylim, n_picks):
+            area = (xlim[1] - xlim[0]) * (ylim[1] - ylim[0])
+            return cmap(0.3 * n_picks / area)
 
-    def split2(xlim, ylim):
-        if xlim[1] - xlim[0] > (ylim[1] - ylim[0]) / s_vel:
-            m = (xlim[0] + xlim[1]) / 2
-            return ((xlim[0], m), ylim), ((m, xlim[1]), ylim)
-        else:
-            m = (ylim[0] + ylim[1]) / 2
-            return (xlim, (ylim[0], m)), (xlim, (m, ylim[1]))
+        def split2(xlim, ylim):
+            if xlim[1] - xlim[0] > (ylim[1] - ylim[0]) / s_vel:
+                m = (xlim[0] + xlim[1]) / 2
+                return ((xlim[0], m), ylim), ((m, xlim[1]), ylim)
+            else:
+                m = (ylim[0] + ylim[1]) / 2
+                return (xlim, (ylim[0], m)), (xlim, (m, ylim[1]))
 
-    while not blocks.empty():
-        xlim, ylim = blocks.get()
-        if xlim == (20.0, 25.0) and ylim == (55.0, 65.0):
-            pass
-        n_p_picks = np.sum(matching_picks(xlim, ylim, p_picks, p_vel))
-        n_s_picks = np.sum(matching_picks(xlim, ylim, s_picks, s_vel))
+        while not blocks.empty():
+            xlim, ylim = blocks.get()
+            if xlim == (20.0, 25.0) and ylim == (55.0, 65.0):
+                pass
+            n_p_picks = np.sum(matching_picks(xlim, ylim, p_picks, p_vel))
+            n_s_picks = np.sum(matching_picks(xlim, ylim, s_picks, s_vel))
 
-        if n_p_picks < 6 or n_s_picks < 6:
-            continue
-        # print(xlim, ylim, n_p_picks, n_s_picks)
+            if n_p_picks < 6 or n_s_picks < 6:
+                continue
+            # print(xlim, ylim, n_p_picks, n_s_picks)
 
-        patch = patches.Rectangle(
-            (xlim[0], ylim[0]),
-            xlim[1] - xlim[0],
-            ylim[1] - ylim[0],
-            facecolor=get_color(xlim, ylim, n_p_picks + n_s_picks),
-            linewidth=0.5,
-            edgecolor="k",
-        )
-        ax.add_patch(patch)
+            patch = patches.Rectangle(
+                (xlim[0], ylim[0]),
+                xlim[1] - xlim[0],
+                ylim[1] - ylim[0],
+                facecolor=get_color(xlim, ylim, n_p_picks + n_s_picks),
+                linewidth=0.5,
+                edgecolor="k",
+            )
+            ax.add_patch(patch)
 
-        if max(xlim[1] - xlim[0], (ylim[1] - ylim[0]) / s_vel) > 2:
-            block1, block2 = split2(xlim, ylim)
-            blocks.put(block1)
-            blocks.put(block2)
+            if max(xlim[1] - xlim[0], (ylim[1] - ylim[0]) / s_vel) > 2:
+                block1, block2 = split2(xlim, ylim)
+                blocks.put(block1)
+                blocks.put(block2)
 
     ax.plot(p_picks[:, 0], p_picks[:, 1], "+", c="C1", label="P")
     ax.plot(s_picks[:, 0], s_picks[:, 1], "+", c="C2", label="S")
     ax.legend()
 
-    fig.savefig(paper_figure_path / "octotree_schematic.png", bbox_inches="tight")
+    if empty:
+        fig.savefig(
+            paper_figure_path / "octotree_schematic_empty.png", bbox_inches="tight"
+        )
+    else:
+        fig.savefig(paper_figure_path / "octotree_schematic.png", bbox_inches="tight")
 
 
 @manager.register_with_markers(["table", "paper"])
@@ -488,6 +500,25 @@ def iquique_sections():
     axs[-1].set_xlabel("Longitude [$^\circ$]")
 
     fig.savefig(paper_figure_path / f"iquique_sections.png", bbox_inches="tight")
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_section_pyocto():
+    fig = plt.figure(figsize=(0.5 * textwidth, 0.3 * textwidth))
+    exp = "pyocto_1d_cutoff"
+    base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
+
+    ax = fig.add_subplot(111)
+
+    events = pd.read_csv(base_path / f"benchmark_{exp}{iquique_suffix}/events.csv")
+    ax.scatter(events["longitude"], events["depth"], s=0.7, c="k", lw=0)
+    ax.set_ylabel(name_lookup[exp] + "\nDepth [km]")
+
+    ax.set_xlim(-71.3, -68.1)
+    ax.set_ylim(250, -10)
+    ax.set_xlabel("Longitude [$^\circ$]")
+
+    fig.savefig(paper_figure_path / f"iquique_section_pyocto.png", bbox_inches="tight")
 
 
 @manager.register_with_markers(["plot", "paper"])
