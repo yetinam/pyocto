@@ -28,6 +28,10 @@ name_lookup = {
     "pyocto_cutoff": "PyOcto",
     "pyocto_1d_cutoff": "PyOcto1D",
 }
+exp_dict = {
+    "shallow": "Shallow",
+    "chile": "Subduction",
+}
 iquique_suffix = "_0.05"
 
 if not paper_figure_path.is_dir():
@@ -477,6 +481,206 @@ def benchmark_results():
         axs[-1].set_xticklabels(labels, rotation=90)
         axs[-1].set_xlim(ticks[0] - 3 * wi, ticks[-1] + 3 * wi)
         fig.savefig(paper_figure_path / f"results_{exp}.png", bbox_inches="tight")
+
+
+@manager.register_with_markers(["plot", "paper"])
+def benchmark_results_short():
+    results = get_benchmark_results()
+    for exp, sub in results.groupby("exp"):
+        fig = plt.figure(figsize=(textwidth, 0.7 * textwidth))
+        axs = fig.subplots(3, 1, sharex=True, gridspec_kw={"hspace": 0.05})
+
+        axs[0].set_ylabel("Precision")
+        axs[1].set_ylabel("Recall")
+        axs[2].set_ylabel("F1 score")
+
+        events = sub["events"].unique()
+        noises = sub["noise"].unique()
+        associators = sub["associator"].unique()
+
+        wi = 0.1
+        wj = len(associators) * wi + wi
+        wk = len(noises) * wj + wi
+
+        ticks = []
+        labels = []
+
+        x_pos = [0.1, 0.1, 0.1, 0, 3]
+
+        for k, event in enumerate(events):
+            for j, noise in enumerate(noises):
+                ticks.append(j * wj + k * wk + (len(associators) // 2) * wi)
+                labels.append(f"{event} Events\n{noise:.1f} Noise")
+                for i, associator in enumerate(associators):
+                    px = i * wi + j * wj + k * wk
+                    row = sub[
+                        (sub["events"] == event)
+                        & (sub["noise"] == noise)
+                        & (sub["associator"] == associator)
+                    ]
+                    assert (
+                        len(row) <= 1
+                    ), f"Found more than one entry for {exp} {event} {noise} {associator}"
+
+                    if len(row) == 0:
+                        for ax, y in zip(axs, x_pos):
+                            ax.text(
+                                px,
+                                y,
+                                "X",
+                                color="gray",
+                                weight="bold",
+                                va="center",
+                                ha="center",
+                            )
+                    else:
+                        row = row.iloc[0]
+
+                    axs[0].bar(px, row["precision"], width=wi, color=f"C{i}")
+                    axs[1].bar(px, row["recall"], width=wi, color=f"C{i}")
+                    axs[2].bar(px, row["f1"], width=wi, color=f"C{i}")
+
+        for ax in axs[:3]:
+            ax.set_ylim(0, 1.03)
+
+        for i, associator in enumerate(associators):
+            axs[-1].bar(-1, 1, color=f"C{i}", label=associator)
+        axs[-1].legend(loc="lower left")
+
+        axs[-1].set_xticks(ticks)
+        axs[-1].set_xticklabels(labels, rotation=90)
+        axs[-1].set_xlim(ticks[0] - 3 * wi, ticks[-1] + 3 * wi)
+        fig.savefig(paper_figure_path / f"results_short_{exp}.png", bbox_inches="tight")
+
+
+@manager.register_with_markers(["plot", "paper"])
+def f1_results():
+    results = get_benchmark_results()
+    fig = plt.figure(figsize=(textwidth, 0.5 * textwidth))
+    axs = fig.subplots(2, 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.05})
+
+    for exp_idx, (exp, sub) in enumerate(results.groupby("exp")):
+        ax = axs[exp_idx]
+
+        ax.set_ylabel(exp_dict[exp] + "\nF1 score")
+
+        events = sub["events"].unique()
+        noises = sub["noise"].unique()
+        associators = sub["associator"].unique()
+
+        wi = 0.1
+        wj = len(associators) * wi + wi
+        wk = len(noises) * wj + wi
+
+        ticks = []
+        labels = []
+
+        x_pos = 0.1
+
+        for k, event in enumerate(events):
+            for j, noise in enumerate(noises):
+                ticks.append(j * wj + k * wk + (len(associators) // 2) * wi)
+                labels.append(f"{event} Events\n{noise:.1f} Noise")
+                for i, associator in enumerate(associators):
+                    px = i * wi + j * wj + k * wk
+                    row = sub[
+                        (sub["events"] == event)
+                        & (sub["noise"] == noise)
+                        & (sub["associator"] == associator)
+                    ]
+                    assert (
+                        len(row) <= 1
+                    ), f"Found more than one entry for {exp} {event} {noise} {associator}"
+
+                    if len(row) == 0:
+                        ax.text(
+                            px,
+                            x_pos,
+                            "X",
+                            color="gray",
+                            weight="bold",
+                            va="center",
+                            ha="center",
+                        )
+                    else:
+                        row = row.iloc[0]
+
+                    ax.bar(px, row["f1"], width=wi, color=f"C{i}")
+
+    for i, associator in enumerate(associators):
+        axs[-1].bar(-1, 1, color=f"C{i}", label=associator)
+    axs[-1].legend(loc="lower left")
+
+    axs[-1].set_ylim(0, 1.03)
+    axs[-1].set_xticks(ticks)
+    axs[-1].set_xticklabels(labels, rotation=90)
+    axs[-1].set_xlim(ticks[0] - 3 * wi, ticks[-1] + 3 * wi)
+    fig.savefig(paper_figure_path / f"f1_results.png", bbox_inches="tight")
+
+
+@manager.register_with_markers(["plot", "paper"])
+def timing_results():
+    results = get_benchmark_results()
+    fig = plt.figure(figsize=(textwidth, 0.5 * textwidth))
+    axs = fig.subplots(2, 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.05})
+
+    for exp_idx, (exp, sub) in enumerate(results.groupby("exp")):
+        ax = axs[exp_idx]
+
+        ax.set_ylabel(exp_dict[exp] + "\nRun time [s]")
+
+        events = sub["events"].unique()
+        noises = sub["noise"].unique()
+        associators = sub["associator"].unique()
+
+        wi = 0.1
+        wj = len(associators) * wi + wi
+        wk = len(noises) * wj + wi
+
+        ticks = []
+        labels = []
+
+        x_pos = 3
+
+        for k, event in enumerate(events):
+            for j, noise in enumerate(noises):
+                ticks.append(j * wj + k * wk + (len(associators) // 2) * wi)
+                labels.append(f"{event} Events\n{noise:.1f} Noise")
+                for i, associator in enumerate(associators):
+                    px = i * wi + j * wj + k * wk
+                    row = sub[
+                        (sub["events"] == event)
+                        & (sub["noise"] == noise)
+                        & (sub["associator"] == associator)
+                    ]
+                    assert (
+                        len(row) <= 1
+                    ), f"Found more than one entry for {exp} {event} {noise} {associator}"
+
+                    if len(row) == 0:
+                        ax.text(
+                            px,
+                            x_pos,
+                            "X",
+                            color="gray",
+                            weight="bold",
+                            va="center",
+                            ha="center",
+                        )
+                    else:
+                        row = row.iloc[0]
+
+                    ax.bar(px, row["runtime"], width=wi, color=f"C{i}")
+
+    for i, associator in enumerate(associators):
+        axs[-1].bar(-1, 1, color=f"C{i}", label=associator)
+    axs[-1].legend(loc="upper left")
+
+    axs[-1].set_yscale("log")
+    axs[-1].set_xticks(ticks)
+    axs[-1].set_xticklabels(labels, rotation=90)
+    axs[-1].set_xlim(ticks[0] - 3 * wi, ticks[-1] + 3 * wi)
+    fig.savefig(paper_figure_path / f"timing_results.png", bbox_inches="tight")
 
 
 @manager.register_with_markers(["plot", "paper"])
