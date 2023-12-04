@@ -73,6 +73,10 @@ public:
   double surface_p_velocity = 5.3;
   double surface_s_velocity = 3.1;
   explicit VelocityModel1D(char *path);
+  ~VelocityModel1D() {
+    delete[] p_times;
+    delete[] s_times;
+  }
   bool contains(const Volume &volume, const Pick *pick) override;
   double travel_time(const Volume &volume, const std::string &station,
                      char phase) override;

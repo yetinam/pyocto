@@ -126,6 +126,7 @@ VelocityModel1D::VelocityModel1D(char *path) {
   for (int i = 0; i < nx * nz; i++) {
     fread(s_times + i, 8, 1, f);
   }
+  fclose(f);
 
   precalculate_extrema();
 }
