@@ -812,12 +812,21 @@ def iquique_maps(wide=False):
 
 
 @manager.register_with_markers(["plot", "paper"])
-def iquique_rates():
-    fig = plt.figure(figsize=(colwidth, 0.8 * textwidth))
+def iquique_rates_wide():
+    iquique_rates(wide=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_rates(wide=False):
     exps = ["gamma", "pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
-    axs = fig.subplots(3, 1, sharex=True, gridspec_kw={"hspace": 0.06})
+    if wide:
+        fig = plt.figure(figsize=(1.5 * textwidth, 0.5 * textwidth))
+        axs = fig.subplots(1, 3, sharex=True, gridspec_kw={"wspace": 0.25})
+    else:
+        fig = plt.figure(figsize=(colwidth, 0.8 * textwidth))
+        axs = fig.subplots(3, 1, sharex=True, gridspec_kw={"hspace": 0.06})
 
     days = None
     for exp in exps:
@@ -835,17 +844,24 @@ def iquique_rates():
         stats = np.array([stats[day] for day in days])
         x_days = np.arange(len(days)) + 0.5
         axs[0].step(x_days, stats[:, 0], label=name_lookup[exp])
-        axs[1].step(x_days, stats[:, 1])
+        axs[1].step(x_days, stats[:, 1], label=name_lookup[exp])
         axs[2].step(x_days, stats[:, 2])
 
     for ax in axs:
         ax.axvline(17.5, c="k", linestyle="--", lw=1.5)
         ax.axvline(1.5, c="k", linestyle="--", lw=1.0)
 
-    w = 5
-    axs[-1].set_xticks(np.arange(len(days))[1::w])
-    labels = [day[:10] for day in days]
-    axs[-1].set_xticklabels(labels[1::w], rotation=90)
+    if wide:
+        for ax in axs:
+            w = 5
+            ax.set_xticks(np.arange(len(days))[1::w])
+            labels = [day[:10] for day in days]
+            ax.set_xticklabels(labels[1::w], rotation=90)
+    else:
+        w = 5
+        axs[-1].set_xticks(np.arange(len(days))[1::w])
+        labels = [day[:10] for day in days]
+        axs[-1].set_xticklabels(labels[1::w], rotation=90)
 
     axs[0].set_ylim(0, 1050)
     axs[1].set_ylim(8, 12)
@@ -856,9 +872,16 @@ def iquique_rates():
     axs[0].set_ylabel("# Events per day")
     axs[1].set_ylabel("P picks per event")
     axs[2].set_ylabel("S picks per event")
-    axs[0].legend(ncol=3, bbox_to_anchor=(0.5, 1.03), loc="lower center")
 
-    fig.savefig(paper_figure_path / f"iquique_rates.png", bbox_inches="tight")
+    if wide:
+        axs[1].legend(ncol=5, bbox_to_anchor=(0.5, 1.03), loc="lower center")
+    else:
+        axs[0].legend(ncol=3, bbox_to_anchor=(0.5, 1.03), loc="lower center")
+
+    if wide:
+        fig.savefig(paper_figure_path / f"iquique_rates_wide.png", bbox_inches="tight")
+    else:
+        fig.savefig(paper_figure_path / f"iquique_rates.png", bbox_inches="tight")
 
 
 def load_picks(path: Path):
