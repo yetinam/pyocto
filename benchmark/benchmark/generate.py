@@ -684,14 +684,25 @@ def timing_results():
 
 
 @manager.register_with_markers(["plot", "paper"])
-def iquique_sections():
-    fig = plt.figure(figsize=(textwidth, 1.37 * textwidth))
+def iquique_sections_wide():
+    iquique_sections(wide=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_sections(wide=False):
     exps = ["pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d", "gamma"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
-    axs = fig.subplots(
-        len(exps), 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.05}
-    )
+    if wide:
+        fig = plt.figure(figsize=(1.5 * textwidth, 0.7 * textwidth))
+        axs = fig.subplots(3, 2, sharex=True, sharey=True, gridspec_kw={"hspace": 0.05})
+        axs = axs.reshape(-1)
+        axs[-1].remove()
+    else:
+        fig = plt.figure(figsize=(textwidth, 1.37 * textwidth))
+        axs = fig.subplots(
+            len(exps), 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.05}
+        )
 
     for i, exp in enumerate(exps):
         ax = axs[i]
@@ -699,11 +710,20 @@ def iquique_sections():
         ax.scatter(events["longitude"], events["depth"], s=1, c="k")
         ax.set_ylabel(name_lookup[exp] + "\nDepth [km]")
 
-    axs[-1].set_xlim(-71.3, -68.1)
-    axs[-1].set_ylim(250, -10)
-    axs[-1].set_xlabel("Longitude [$^\circ$]")
+    axs[0].set_xlim(-71.3, -68.1)
+    axs[0].set_ylim(250, -10)
+    if wide:
+        axs[2].set_xlabel("Longitude [$^\circ$]")
+        axs[4].set_xlabel("Longitude [$^\circ$]")
+    else:
+        axs[-1].set_xlabel("Longitude [$^\circ$]")
 
-    fig.savefig(paper_figure_path / f"iquique_sections.png", bbox_inches="tight")
+    if wide:
+        fig.savefig(
+            paper_figure_path / f"iquique_sections_wide.png", bbox_inches="tight"
+        )
+    else:
+        fig.savefig(paper_figure_path / f"iquique_sections.png", bbox_inches="tight")
 
 
 @manager.register_with_markers(["plot", "paper"])
@@ -726,14 +746,25 @@ def iquique_section_pyocto():
 
 
 @manager.register_with_markers(["plot", "paper"])
-def iquique_maps():
-    fig = plt.figure(figsize=(textwidth, 1.2 * textwidth))
+def iquique_maps_wide():
+    iquique_maps(wide=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_maps(wide=False):
+    if wide:
+        fig = plt.figure(figsize=(2.2 * textwidth, 0.75 * textwidth))
+    else:
+        fig = plt.figure(figsize=(textwidth, 1.2 * textwidth))
     exps = ["pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d", "gamma"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
     axs = []
     for i, _ in enumerate(exps):
-        axs.append(fig.add_subplot(23 * 10 + i + 1, projection=ccrs.Mercator()))
+        if wide:
+            axs.append(fig.add_subplot(160 + i + 1, projection=ccrs.Mercator()))
+        else:
+            axs.append(fig.add_subplot(23 * 10 + i + 1, projection=ccrs.Mercator()))
 
     for i, exp in enumerate(exps):
         ax = axs[i]
@@ -767,11 +798,17 @@ def iquique_maps():
 
     pos = axs[-1].get_position().corners()
     left = axs[2].get_position().corners()[0, 0]
-    cax = fig.add_axes([left, pos[0, 1], 0.10, (pos[1, 1] - pos[0, 1])])
+    if wide:
+        cax = fig.add_subplot(166)
+    else:
+        cax = fig.add_axes([left, pos[0, 1], 0.10, (pos[1, 1] - pos[0, 1])])
     fig.colorbar(cb, cax=cax, label="Depth [km]")
     cax.invert_yaxis()
 
-    fig.savefig(paper_figure_path / f"iquique_maps.png", bbox_inches="tight")
+    if wide:
+        fig.savefig(paper_figure_path / f"iquique_maps_wide.png", bbox_inches="tight")
+    else:
+        fig.savefig(paper_figure_path / f"iquique_maps.png", bbox_inches="tight")
 
 
 @manager.register_with_markers(["plot", "paper"])
@@ -890,6 +927,55 @@ def iquique_table():
         cont = f.read()
     with open(table_path, "w") as f:
         f.write(cont.replace("{table}", "{table*}"))
+
+
+@manager.register_with_markers(["plot", "paper"])
+def scenario_maps():
+    fig = plt.figure(figsize=(textwidth, 0.6 * textwidth))
+
+    gs = fig.add_gridspec(1, 2, width_ratios=[2, 1])
+    axs = {
+        "shallow": fig.add_subplot(gs[0], projection=ccrs.Mercator()),
+        "chile": fig.add_subplot(gs[1], projection=ccrs.Mercator()),
+    }
+
+    for region in ["chile", "shallow"]:
+        exp_path = Path(f"synthetics/{region}_500_0.3")
+        stations = pd.read_parquet(exp_path / "stations")
+        catalog = pd.read_parquet(exp_path / "catalog")
+
+        axs[region].plot(
+            stations["longitude"],
+            stations["latitude"],
+            "k^",
+            transform=ccrs.PlateCarree(),
+            ms=3,
+            zorder=3,
+        )
+        cb = axs[region].scatter(
+            catalog["longitude"],
+            catalog["latitude"],
+            c=catalog["depth"],
+            s=2,
+            transform=ccrs.PlateCarree(),
+            zorder=2,
+            cmap=cm.batlow,
+        )
+        cbar = fig.colorbar(cb, label="Depth [km]")
+        cbar.ax.invert_yaxis()
+
+        gl = axs[region].gridlines(
+            draw_labels=True,
+            dms=True,
+            x_inline=False,
+            y_inline=False,
+            zorder=1,
+            linewidth=0.5,
+        )
+        gl.right_labels = False
+        # gl.bottom_labels = False
+
+    fig.savefig(paper_figure_path / f"scenario_maps.png", bbox_inches="tight")
 
 
 if __name__ == "__main__":
