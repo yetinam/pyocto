@@ -178,7 +178,16 @@ def octotree_schematic_empty():
 
 
 @manager.register_with_markers(["plot", "paper"])
-def octotree_schematic(empty=False):
+def octotree_schematic_steps():
+    octotree_schematic(steps=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def octotree_schematic(empty=False, steps=False):
+    if steps:
+        steps_path = paper_figure_path / "octotree_schematic_steps"
+        steps_path.mkdir(exist_ok=True)
+
     np.random.seed(5005)
     fig = plt.figure(figsize=(textwidth, 0.4 * textwidth))
     ax = fig.add_subplot(111)
@@ -206,14 +215,6 @@ def octotree_schematic(empty=False):
         p_picks += [(t, x) for t, x in zip(t_p, stations)]
         s_picks += [(t, x) for t, x in zip(t_s, stations)]
 
-        if not empty:
-            lw = 0.5
-            ax.plot([t0, t0 + 100], [x0, x0 + 100 * p_vel], "k-", lw=lw)
-            ax.plot([t0, t0 + 100], [x0, x0 - 100 * p_vel], "k-", lw=lw)
-            ax.plot([t0, t0 + 100], [x0, x0 + 100 * s_vel], "k--", lw=lw)
-            ax.plot([t0, t0 + 100], [x0, x0 - 100 * s_vel], "k--", lw=lw)
-            ax.plot(t0, x0, "r*")
-
     p_noise = np.random.rand(17) * 40
     s_noise = np.random.rand(17) * 40
     p_picks += [
@@ -226,6 +227,11 @@ def octotree_schematic(empty=False):
     p_picks = np.array(p_picks)
     s_picks = np.array(s_picks)
 
+    ax.plot(p_picks[:, 0], p_picks[:, 1], "+", c="C1", label="P")
+    ax.plot(s_picks[:, 0], s_picks[:, 1], "+", c="C2", label="S")
+    ax.legend(loc="upper right")
+
+    step = 0
     if not empty:
         blocks = Queue()
         blocks.put((global_xlim, global_ylim))
@@ -280,14 +286,23 @@ def octotree_schematic(empty=False):
             )
             ax.add_patch(patch)
 
+            if steps:
+                fig.savefig(steps_path / f"step_{step}.png", bbox_inches="tight")
+                step += 1
+
             if max(xlim[1] - xlim[0], (ylim[1] - ylim[0]) / s_vel) > 2:
                 block1, block2 = split2(xlim, ylim)
                 blocks.put(block1)
                 blocks.put(block2)
 
-    ax.plot(p_picks[:, 0], p_picks[:, 1], "+", c="C1", label="P")
-    ax.plot(s_picks[:, 0], s_picks[:, 1], "+", c="C2", label="S")
-    ax.legend()
+    for t0, x0 in events:
+        if not empty:
+            lw = 0.5
+            ax.plot([t0, t0 + 100], [x0, x0 + 100 * p_vel], "k-", lw=lw)
+            ax.plot([t0, t0 + 100], [x0, x0 - 100 * p_vel], "k-", lw=lw)
+            ax.plot([t0, t0 + 100], [x0, x0 + 100 * s_vel], "k--", lw=lw)
+            ax.plot([t0, t0 + 100], [x0, x0 - 100 * s_vel], "k--", lw=lw)
+            ax.plot(t0, x0, "r*")
 
     if empty:
         fig.savefig(
