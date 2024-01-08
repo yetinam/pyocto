@@ -899,12 +899,16 @@ class OctoAssociator:
         return events
 
     @staticmethod
-    def to_nonlinloc(assignments: pd.DataFrame, path: Union[str, Path]) -> None:
+    def to_nonlinloc(
+        assignments: pd.DataFrame, path: Union[str, Path], pick_std: float = 0.05
+    ) -> None:
         """
         Write the outputs to the .obs format that can be parsed by NonLinLoc
 
         :param assignments: The assignments as output by PyOcto
         :param path: Output path for the observations
+        :param pick_std: Gaussian uncertainty of the picks in seconds.
+                         Currently, does not support individual uncertainties per pick.
         """
         with open(path, "w") as f:
             for event_idx, event_catalog in assignments.groupby("event_idx"):
@@ -923,6 +927,6 @@ class OctoAssociator:
 
                     f.write(
                         f"{station:6s} ?    ?    ? {phase}      ? {daystr} {hourmin}   {second} "
-                        f"GAU  2.00e-02 -1.00e+00 -1.00e+00 -1.00e+00\n"
+                        f"GAU  {pick_std:.2e} -1.00e+00 -1.00e+00 -1.00e+00\n"
                     )
                 f.write("\n")
