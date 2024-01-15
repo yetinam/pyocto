@@ -302,7 +302,7 @@ def octotree_schematic(empty=False, steps=False):
             ax.plot([t0, t0 + 100], [x0, x0 - 100 * p_vel], "k-", lw=lw)
             ax.plot([t0, t0 + 100], [x0, x0 + 100 * s_vel], "k--", lw=lw)
             ax.plot([t0, t0 + 100], [x0, x0 - 100 * s_vel], "k--", lw=lw)
-            ax.plot(t0, x0, "r*")
+            ax.plot(t0, x0, "r*", mew=0.5, mec="w", ms=10)
 
     if empty:
         fig.savefig(
