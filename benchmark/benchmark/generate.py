@@ -704,7 +704,12 @@ def iquique_sections_wide():
 
 
 @manager.register_with_markers(["plot", "paper"])
-def iquique_sections(wide=False):
+def iquique_sections_picks():
+    iquique_sections(picks=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_sections(wide=False, picks=False):
     exps = ["pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d", "gamma"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
@@ -721,7 +726,14 @@ def iquique_sections(wide=False):
 
     for i, exp in enumerate(exps):
         ax = axs[i]
-        events = pd.read_csv(base_path / f"benchmark_{exp}{iquique_suffix}/events.csv")
+        if picks:
+            events = pd.read_csv(
+                base_path / f"benchmark_7_picks_{exp}{iquique_suffix}/events.csv"
+            )
+        else:
+            events = pd.read_csv(
+                base_path / f"benchmark_{exp}{iquique_suffix}/events.csv"
+            )
         ax.scatter(events["longitude"], events["depth"], s=1, c="k")
         ax.set_ylabel(name_lookup[exp] + "\nDepth [km]")
 
@@ -736,6 +748,10 @@ def iquique_sections(wide=False):
     if wide:
         fig.savefig(
             paper_figure_path / f"iquique_sections_wide.png", bbox_inches="tight"
+        )
+    elif picks:
+        fig.savefig(
+            paper_figure_path / f"iquique_sections_picks.png", bbox_inches="tight"
         )
     else:
         fig.savefig(paper_figure_path / f"iquique_sections.png", bbox_inches="tight")
@@ -766,7 +782,12 @@ def iquique_maps_wide():
 
 
 @manager.register_with_markers(["plot", "paper"])
-def iquique_maps(wide=False):
+def iquique_maps_picks():
+    iquique_maps(picks=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_maps(wide=False, picks=False):
     if wide:
         fig = plt.figure(figsize=(2.2 * textwidth, 0.75 * textwidth))
     else:
@@ -784,7 +805,14 @@ def iquique_maps(wide=False):
     for i, exp in enumerate(exps):
         ax = axs[i]
         ax.coastlines(zorder=51)
-        events = pd.read_csv(base_path / f"benchmark_{exp}{iquique_suffix}/events.csv")
+        if picks:
+            events = pd.read_csv(
+                base_path / f"benchmark_7_picks_{exp}{iquique_suffix}/events.csv"
+            )
+        else:
+            events = pd.read_csv(
+                base_path / f"benchmark_{exp}{iquique_suffix}/events.csv"
+            )
         cb = ax.scatter(
             events["longitude"],
             events["latitude"],
@@ -822,6 +850,8 @@ def iquique_maps(wide=False):
 
     if wide:
         fig.savefig(paper_figure_path / f"iquique_maps_wide.png", bbox_inches="tight")
+    elif picks:
+        fig.savefig(paper_figure_path / f"iquique_maps_picks.png", bbox_inches="tight")
     else:
         fig.savefig(paper_figure_path / f"iquique_maps.png", bbox_inches="tight")
 
@@ -832,7 +862,12 @@ def iquique_rates_wide():
 
 
 @manager.register_with_markers(["plot", "paper"])
-def iquique_rates(wide=False):
+def iquique_rates_picks():
+    iquique_rates(picks=True)
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_rates(wide=False, picks=False):
     exps = ["gamma", "pyocto_cutoff", "pyocto_1d_cutoff", "real", "real_1d"]
     base_path = Path("/home/munchmej/code/ml-catalog/catalogs")
 
@@ -845,7 +880,14 @@ def iquique_rates(wide=False):
 
     days = None
     for exp in exps:
-        events = pd.read_csv(base_path / f"benchmark_{exp}{iquique_suffix}/events.csv")
+        if picks:
+            events = pd.read_csv(
+                base_path / f"benchmark_7_picks_{exp}{iquique_suffix}/events.csv"
+            )
+        else:
+            events = pd.read_csv(
+                base_path / f"benchmark_{exp}{iquique_suffix}/events.csv"
+            )
         if days is None:
             days = sorted(events["group"].unique())
 
@@ -878,9 +920,14 @@ def iquique_rates(wide=False):
         labels = [day[:10] for day in days]
         axs[-1].set_xticklabels(labels[1::w], rotation=90)
 
-    axs[0].set_ylim(0, 1050)
-    axs[1].set_ylim(8, 12)
-    axs[2].set_ylim(5.5, 8.5)
+    if picks:
+        axs[0].set_ylim(0, 1250)
+        axs[1].set_ylim(7, 11)
+        axs[2].set_ylim(5.5, 8.5)
+    else:
+        axs[0].set_ylim(0, 1050)
+        axs[1].set_ylim(8, 12)
+        axs[2].set_ylim(5.5, 8.5)
 
     axs[-1].set_xlim(0.5, 30.5)
 
@@ -895,6 +942,8 @@ def iquique_rates(wide=False):
 
     if wide:
         fig.savefig(paper_figure_path / f"iquique_rates_wide.png", bbox_inches="tight")
+    elif picks:
+        fig.savefig(paper_figure_path / f"iquique_rates_picks.png", bbox_inches="tight")
     else:
         fig.savefig(paper_figure_path / f"iquique_rates.png", bbox_inches="tight")
 
