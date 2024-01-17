@@ -123,6 +123,10 @@ def get_benchmark_results() -> pd.DataFrame:
             row["associator.tt_grid_size_horizontal_deg"]
         ):
             tag = "1D"
+        if "associator.config.eikonal.h" in row and not np.isnan(
+            row["associator.config.eikonal.h"]
+        ):
+            tag = "1D"
         return row["associator"] + tag
 
     def add_exp_tag(row):
@@ -446,7 +450,7 @@ def benchmark_results():
 
         for k, event in enumerate(events):
             for j, noise in enumerate(noises):
-                ticks.append(j * wj + k * wk + (len(associators) // 2) * wi)
+                ticks.append(j * wj + k * wk + (len(associators) / 2 - 0.5) * wi)
                 labels.append(f"{event} Events\n{noise:.1f} Noise")
                 for i, associator in enumerate(associators):
                     px = i * wi + j * wj + k * wk
@@ -494,7 +498,10 @@ def benchmark_results():
         axs[-1].set_yscale("log")
         axs[-1].set_xticks(ticks)
         axs[-1].set_xticklabels(labels, rotation=90)
-        axs[-1].set_xlim(ticks[0] - 3 * wi, ticks[-1] + 3 * wi)
+        axs[-1].set_xlim(
+            ticks[0] - (len(associators) + 1) / 2 * wi,
+            ticks[-1] + (len(associators) + 1) / 2 * wi,
+        )
         fig.savefig(paper_figure_path / f"results_{exp}.png", bbox_inches="tight")
 
 
@@ -696,6 +703,68 @@ def timing_results():
     axs[-1].set_xticklabels(labels, rotation=90)
     axs[-1].set_xlim(ticks[0] - 3 * wi, ticks[-1] + 3 * wi)
     fig.savefig(paper_figure_path / f"timing_results.png", bbox_inches="tight")
+
+
+@manager.register_with_markers(["plot", "paper"])
+def iquique_gamma_1d():
+    fig = plt.figure(figsize=(0.6 * textwidth, 1.4 * textwidth))
+
+    gs = fig.add_gridspec(2, 2, height_ratios=[3, 1], width_ratios=[5, 1], hspace=0.1)
+    gs_map = gs[0, 0]
+    gs_section = gs[1, 0]
+    gs_cbar = gs[0, 1]
+
+    ax = fig.add_subplot(gs_map, projection=ccrs.Mercator())
+    ax_cross = fig.add_subplot(gs_section)
+    cax = fig.add_subplot(gs_cbar)
+
+    ax.coastlines(zorder=51)
+
+    gl = ax.gridlines(
+        draw_labels=True,
+        dms=True,
+        x_inline=False,
+        y_inline=False,
+        zorder=50,
+        linewidth=0.5,
+    )
+    gl.right_labels = False
+    gl.bottom_labels = False
+
+    ax_cross.xaxis.set_major_locator(gl.xlocator)
+    ax_cross.xaxis.set_major_formatter(gl.xformatter)
+
+    ax.set_extent([-71.4, -68, -25, -18], crs=ccrs.PlateCarree())
+    ax_cross.set_xlim(-71.4, -68)
+    ax_cross.set_ylim(250, -10)
+
+    base_path = Path(
+        "/home/munchmej/code/ml-catalog/catalogs/benchmark_gamma_1d_0.05/GammaAssociator/events"
+    )
+    events = []
+    for path in base_path.iterdir():
+        events.append(pd.read_parquet(path))
+    events = pd.concat(events)
+
+    cb = ax.scatter(
+        events["longitude"],
+        events["latitude"],
+        s=1,
+        c=events["depth"],
+        transform=ccrs.PlateCarree(),
+        cmap=cm.batlow,
+        vmin=0,
+        vmax=250,
+        zorder=100,
+    )
+
+    ax_cross.scatter(events["longitude"], events["depth"], s=1, c="k")
+    ax_cross.set_ylabel("Depth [km]")
+
+    fig.colorbar(cb, cax=cax, label="Depth [km]")
+    cax.invert_yaxis()
+
+    fig.savefig(paper_figure_path / f"iquique_gamma_1d.png", bbox_inches="tight")
 
 
 @manager.register_with_markers(["plot", "paper"])
