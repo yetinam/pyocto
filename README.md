@@ -7,7 +7,7 @@
 [![Read the Docs](https://img.shields.io/readthedocs/pyocto)](https://pyocto.readthedocs.io/en/latest/)
 [![PyPI](https://img.shields.io/pypi/v/pyocto)](https://pypi.org/project/pyocto/)
 [![Python 3.9](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/release/python-390/)
-[![DOI](https://zenodo.org/badge/DOI/xyz)](https://doi.org/xyz)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10016666.svg)](https://doi.org/10.5281/zenodo.10016666)
 
 PyOcto is a high-throughput seismic phase associator.
 The best way to get started with PyOcto is through our interactive examples:
