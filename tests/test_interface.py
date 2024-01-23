@@ -267,3 +267,80 @@ def test_windows_warning(caplog):
                 velocity_model=None,
             )
         assert "on Windows" in caplog.text
+
+
+def test_pick_count_warnings(caplog):
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator(
+            xlim=(250.0, 600.0),
+            ylim=(7200.0, 8000.0),
+            zlim=(0.0, 250.0),
+            time_before=300.0,
+            velocity_model=None,
+            n_picks=10,
+            n_p_picks=5,
+            n_s_picks=5,
+            n_p_and_s_picks=5,
+        )
+    assert "The required number" not in caplog.text
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator(
+            xlim=(250.0, 600.0),
+            ylim=(7200.0, 8000.0),
+            zlim=(0.0, 250.0),
+            time_before=300.0,
+            velocity_model=None,
+            n_picks=7,
+            n_p_picks=5,
+            n_s_picks=5,
+            n_p_and_s_picks=3,
+        )
+    assert "The required number of picks per event " in caplog.text
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator(
+            xlim=(250.0, 600.0),
+            ylim=(7200.0, 8000.0),
+            zlim=(0.0, 250.0),
+            time_before=300.0,
+            velocity_model=None,
+            n_picks=7,
+            n_p_picks=4,
+            n_s_picks=3,
+            n_p_and_s_picks=4,
+        )
+    assert "The required number of picks per event " in caplog.text
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator(
+            xlim=(250.0, 600.0),
+            ylim=(7200.0, 8000.0),
+            zlim=(0.0, 250.0),
+            time_before=300.0,
+            velocity_model=None,
+            n_picks=20,
+            n_p_picks=3,
+            n_s_picks=4,
+            n_p_and_s_picks=4,
+        )
+    assert "The required number of P picks per event" in caplog.text
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        pyocto.OctoAssociator(
+            xlim=(250.0, 600.0),
+            ylim=(7200.0, 8000.0),
+            zlim=(0.0, 250.0),
+            time_before=300.0,
+            velocity_model=None,
+            n_picks=20,
+            n_p_picks=4,
+            n_s_picks=3,
+            n_p_and_s_picks=4,
+        )
+    assert "The required number of S picks per event" in caplog.text

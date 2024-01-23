@@ -330,8 +330,8 @@ class OctoAssociator:
         edt_pick_std: float = 1.0,
         max_pick_overlap: int = 4,
         n_picks: int = 10,
-        n_p_picks: int = 5,
-        n_s_picks: int = 5,
+        n_p_picks: int = 3,
+        n_s_picks: int = 3,
         n_p_and_s_picks: int = 3,
         refinement_iterations: int = 3,
         time_slicing: float = 1200.0,
@@ -383,6 +383,36 @@ class OctoAssociator:
         )  # References that need to be kept in memory to avoid automatic garbage collection
 
         self._os_check()
+        self._pick_count_warnings()
+
+    def _pick_count_warnings(self):
+        if self.n_picks < self.n_p_picks + self.n_s_picks:
+            logger.warning(
+                f"The required number of picks per event ({self.n_picks}) is lower than the sum of the "
+                f"required P ({self.n_p_picks}) and S ({self.n_s_picks}). The effective number of picks "
+                f"required will be {self.n_p_picks + self.n_s_picks}."
+            )
+
+        if self.n_picks < 2 * self.n_p_and_s_picks:
+            logger.warning(
+                f"The required number of picks per event ({self.n_picks}) is lower than twice the number "
+                f"of stations with both P and S pick ({self.n_p_and_s_picks}). The effective number of "
+                f"picks required will be {2 * self.n_p_and_s_picks}."
+            )
+
+        if self.n_p_picks < self.n_p_and_s_picks:
+            logger.warning(
+                f"The required number of P picks per event ({self.n_p_picks}) is lower than the number "
+                f"of stations with both P and S pick ({self.n_p_and_s_picks}). The effective number of "
+                f"P picks required will be {self.n_p_and_s_picks}."
+            )
+
+        if self.n_s_picks < self.n_p_and_s_picks:
+            logger.warning(
+                f"The required number of S picks per event ({self.n_s_picks}) is lower than the number "
+                f"of stations with both P and S pick ({self.n_p_and_s_picks}). The effective number of "
+                f"S picks required will be {self.n_p_and_s_picks}."
+            )
 
     def _os_check(self) -> None:
         if self.n_threads is None or self.n_threads != -1:
