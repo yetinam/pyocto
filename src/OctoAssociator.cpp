@@ -363,6 +363,10 @@ bool OctoAssociator::create_event(
 
     root_volume = config->root_volume();
     volume = locate_edt(root_volume, new_picks);
+
+    if (std::isnan(volume.t))
+      // No location found
+      return false;
   }
 
   std::vector<double> residuals;
@@ -453,12 +457,20 @@ double OctoAssociator::edt_loss(Volume &volume,
   double origin_time = 0;
 
   for (auto pick : picks) {
-    tts.push_back(config->velocity_model_location->travel_time(volume, pick));
+    auto tt_tmp = config->velocity_model_location->travel_time(volume, pick);
+    if (std::isnan(tt_tmp))
+      continue;
+
+    tts.push_back(tt_tmp);
     arrivals.push_back(pick->time);
     origin_time += (arrivals.back() - tts.back());
   }
-  origin_time /= picks.size();
+  origin_time /= arrivals.size();
   volume.t = origin_time;
+
+  if (arrivals.empty())
+    // Not a single arrival within range
+    return INFINITY;
 
   if (print_residuals) {
     // printf("Event - Number of residuals: %lu\n", picks.size());
@@ -472,7 +484,7 @@ double OctoAssociator::edt_loss(Volume &volume,
   double edt = 0;
   double edt_exp = 0;
   double double_sigma_squared = 2 * config->edt_pick_std * config->edt_pick_std;
-  for (int i = 0; i < picks.size(); i++) {
+  for (int i = 0; i < arrivals.size(); i++) {
     for (int j = 0; j < i; j++) {
       edt += pow((tts[i] - tts[j]) - (arrivals[i] - arrivals[j]), 2);
       edt_exp += exp(-pow((tts[i] - tts[j]) - (arrivals[i] - arrivals[j]), 2) /
@@ -481,8 +493,10 @@ double OctoAssociator::edt_loss(Volume &volume,
   }
   edt_exp = -edt_exp; // Flip sign so target is minimizing (even though it's
                       // actually a density)
-  edt_exp /= (picks.size() * (picks.size() - 1)) / 2; // Norm by number of picks
-  edt /= (picks.size() * (picks.size() - 1)) / 2;     // Norm by number of picks
+  edt_exp /=
+      (arrivals.size() * (arrivals.size() - 1)) / 2; // Norm by number of picks
+  edt /=
+      (arrivals.size() * (arrivals.size() - 1)) / 2; // Norm by number of picks
   if (config->exponential_edt) {
     return edt_exp;
   } else {
