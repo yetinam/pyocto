@@ -22,6 +22,7 @@ classifiers = [
 dependencies = [
     "numpy>=1.21.6",
     "pandas>=1.1",
+    "numpy<2",  # Pinned for now because there seems to be a Pyrocko incompatibility
     "pyproj",
 ]
 
