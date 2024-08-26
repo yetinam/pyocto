@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyocto"
-version = "0.1.4"
+version = "0.1.5"
 description="A high-throughput seismic phase associator"
 readme = "README.md"
 authors = [
