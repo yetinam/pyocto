@@ -4,7 +4,7 @@ import os
 import struct
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -308,6 +308,16 @@ class OctoAssociator:
     :param min_pick_fraction: A distance based pick criterion.
                               If for a station, less than this fraction of closer stations have at least one pick,
                               the station picks are discarded.
+    :param second_pass_overwrites: If not None, PyOcto will perform a second pass of the association procedure.
+                                   In this second pass, only picks not associated in the first round will be used.
+                                   The results of both passes are concatenated. The overwrites define all parameters
+                                   that should be different in the second pass. A typical use case for this feature
+                                   might be to associate events with many P picks but few S picks. This is, for example,
+                                   a common scenario for large events picked with ML pickers. The waveform saturates
+                                   and in effect the ML picker fails to identify the S picks. This case could be caught
+                                   by setting a high ``n_picks`` and a low ``n_s_picks`` and a low ``n_p_and_s_picks``.
+                                   At the same time, these settings might not be advisable for a larger processing
+                                   because it will lead to many missed small events with lower numbers of P picks.
     :param n_threads: The number of threads to use.
                       By default, the number of threads will be set to the number of available cores.
     :param velocity_model_location: The velocity model for location.
@@ -340,6 +350,7 @@ class OctoAssociator:
         location_split_depth: int = 6,
         location_split_return: int = 4,
         min_pick_fraction: float = 0.25,
+        second_pass_overwrites: Optional[dict[str, Any]] = None,
         n_threads: Optional[int] = None,  # default to number of available cores
         velocity_model_location: Optional[
             VelocityModel
@@ -370,6 +381,7 @@ class OctoAssociator:
         self.min_node_size_location = min_node_size_location
         self.min_node_size = min_node_size
         self.time_before = time_before
+        self.second_pass_overwrites = second_pass_overwrites
 
         self.velocity_model_association = velocity_model
         if velocity_model_location is None:
@@ -452,11 +464,14 @@ class OctoAssociator:
             self._global_crs = CRS.from_epsg(4326)  # WSG-84
             self._transformer = Transformer.from_crs(self._global_crs, self._crs)
 
-    def _build_config(self, stations: list[backend.Station]) -> backend.OctoTreeConfig:
+    def _build_config(
+        self, stations: list[backend.Station], second_pass: bool = False
+    ) -> backend.OctoTreeConfig:
         """
         Build the config as cpp object
 
         :param stations:
+        :param second_pass: If true, uses overwrites for the second pass.
         :return:
         """
         config = backend.OctoTreeConfig()
@@ -501,6 +516,14 @@ class OctoAssociator:
         config.velocity_model_location = self._cached_pointers[
             "velocity_model_location"
         ]
+
+        if second_pass:
+            for key, value in self.second_pass_overwrites.items():
+                if key not in dir(config):
+                    raise KeyError(
+                        f"Invalid overwrite '{key}'. All overwrites need to be valid config parameters."
+                    )
+                config.__setattr__(key, value)
 
         return config
 
@@ -619,6 +642,53 @@ class OctoAssociator:
         events, assignments = self._parse_events(events_cpp)
         picks_org = picks.copy(deep=True)
         picks_org["idx"] = np.arange(len(picks_org))
+
+        if self.second_pass_overwrites is not None:
+            # Perform second association pass with the unused picks
+            picks_sub = picks_org[~picks_org["idx"].isin(assignments["pick_idx"])].copy(
+                deep=True
+            )  # Only unused picks
+            picks_sub["idx2"] = np.arange(len(picks_sub))
+            picks_cpp = self._convert_picks(picks_sub)
+
+            config = self._build_config(stations_cpp, second_pass=True)
+
+            associator = backend.OctoAssociator(config)
+
+            events_cpp = associator.associate(picks_cpp)
+            self._cached_pointers = (
+                {}
+            )  # Delete cached objects and allow garbage collection
+            events2, assignments2 = self._parse_events(events_cpp)
+
+            if len(events2) > 0:  # Skip this if there is anyhow no event
+                # Update event_idx to be non-intersecting with original output
+                if len(events) > 0:
+                    event_idx_correction = events["idx"].max() + 1
+                    events2["idx"] += event_idx_correction
+                    assignments2["event_idx"] += event_idx_correction
+
+                # Map pick idx to the orginal one (idx) instead of the subset one (idx2)
+                assignments2 = pd.merge(
+                    assignments2,
+                    picks_sub,
+                    left_on="pick_idx",
+                    right_on="idx2",
+                    validate="m:1",
+                )
+                assignments2.drop(columns="pick_idx", inplace=True)
+                assignments2.rename(columns={"idx": "pick_idx"}, inplace=True)
+                assignments2 = assignments2[
+                    ["event_idx", "pick_idx", "residual"]
+                ].copy()
+
+                events = pd.concat([events, events2])
+                assignments = pd.concat([assignments, assignments2])
+
+                events.sort_values("time", inplace=True)
+                events.reset_index(drop=True, inplace=True)
+                assignments.reset_index(drop=True, inplace=True)
+
         assignments = pd.merge(
             assignments, picks_org, left_on="pick_idx", right_on="idx", validate="m:1"
         )
