@@ -984,13 +984,13 @@ class OctoAssociator:
 
         events["latitude"] = events.apply(
             lambda x: self._transformer.transform(
-                x["x"] / factor, x["y"] / factor, direction="INVERSE"
+                x["x"] * factor, x["y"] * factor, direction="INVERSE"
             )[0],
             axis=1,
         )
         events["longitude"] = events.apply(
             lambda x: self._transformer.transform(
-                x["x"] / factor, x["y"] / factor, direction="INVERSE"
+                x["x"] * factor, x["y"] * factor, direction="INVERSE"
             )[1],
             axis=1,
         )
