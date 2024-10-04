@@ -1,6 +1,7 @@
 import logging
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import pytest
 from pyproj import CRS
@@ -344,3 +345,41 @@ def test_pick_count_warnings(caplog):
             n_p_and_s_picks=4,
         )
     assert "The required number of S picks per event" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "crs",
+    [
+        CRS(f"+proj=tmerc +lat_0={-22} +lon_0={-70} +units=m"),
+        CRS(f"+proj=tmerc +lat_0={-22} +lon_0={-70} +units=km"),
+    ],
+)
+def test_coordinate_transform_invtransform(crs):
+    # Test coordinate transforms back and forth with m and km scale
+    n = 20
+    lat0 = -22
+    lon0 = -70
+    stations = pd.DataFrame(
+        {
+            "id": [f"S{i:04d}" for i in range(n)],
+            "latitude": lat0 + np.random.randn(n),
+            "longitude": lon0 + np.random.randn(n),
+            "elevation": 1000 * np.random.random(n),
+        }
+    )
+    associator = pyocto.OctoAssociator(
+        xlim=(250.0, 600.0),
+        ylim=(7200.0, 8000.0),
+        zlim=(0.0, 250.0),
+        time_before=300.0,
+        velocity_model=None,
+        crs=crs,
+    )
+
+    associator.transform_stations(stations)
+    stations2 = stations.copy()
+    stations2.drop(columns=["latitude", "longitude"], inplace=True)
+
+    associator.transform_events(stations2)
+    assert np.allclose(stations["latitude"], stations2["latitude"])
+    assert np.allclose(stations["longitude"], stations2["longitude"])
