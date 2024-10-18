@@ -1018,7 +1018,7 @@ class OctoAssociator:
                     if isinstance(pick["time"], datetime.datetime):
                         time = pick["time"]
                     else:
-                        time = datetime.datetime.fromtimestamp(pick["time"])
+                        time = datetime.datetime.utcfromtimestamp(pick["time"])
                     phase = pick["phase"].upper()
                     station = pick["station"]
                     daystr = time.strftime("%Y%m%d")
