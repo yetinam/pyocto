@@ -3,6 +3,7 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import os
 from datetime import datetime
 
 # -- Project information -----------------------------------------------------
@@ -52,3 +53,7 @@ html_theme_options = {
 
 # Display todos by setting to True
 todo_include_todos = False
+
+if os.getenv("READTHEDOCS"):
+    extensions.append("sphinxcontrib.googleanalytics")
+    googleanalytics_id = "G-P58KBF2L1D"
