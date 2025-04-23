@@ -521,6 +521,10 @@ class OctoAssociator:
 
         if second_pass:
             for key, value in self.second_pass_overwrites.items():
+                if key in [
+                    "iterations"
+                ]:  # Ignore keywords that are not in config available.
+                    continue
                 if key not in dir(config):
                     raise KeyError(
                         f"Invalid overwrite '{key}'. All overwrites need to be valid config parameters."
@@ -646,32 +650,33 @@ class OctoAssociator:
         picks_org["idx"] = np.arange(len(picks_org))
 
         if self.second_pass_overwrites is not None:
-            second_pass_iterations = self.second_pass_overwrites.pop("iterations",
-                                                                     None)
-            if not second_pass_iterations:
-                second_pass_iterations = 1
+            second_pass_iterations = self.second_pass_overwrites.get("iterations", 1)
 
             for second_iter in range(second_pass_iterations):
                 # Perform second association pass with the unused picks
-                picks_sub = picks_org[~picks_org["idx"].isin(assignments["pick_idx"])].copy(
+                picks_sub = picks_org[
+                    ~picks_org["idx"].isin(assignments["pick_idx"])
+                ].copy(
                     deep=True
                 )  # Only unused picks
                 picks_sub["idx2"] = np.arange(len(picks_sub))
                 picks_cpp = self._convert_picks(picks_sub)
-    
+
                 config = self._build_config(stations_cpp, second_pass=True)
-    
+
                 associator = backend.OctoAssociator(config)
-    
+
                 events_cpp = associator.associate(picks_cpp)
                 self._cached_pointers = (
                     {}
                 )  # Delete cached objects and allow garbage collection
                 events2, assignments2 = self._parse_events(events_cpp)
-                
-                if len(events2) == 0:  # Stop iterations of second_pass_overwrites if no event was found
+
+                if (
+                    len(events2) == 0
+                ):  # Stop iterations of second_pass_overwrites if no event was found
                     logger.warning(
-                        f"Did not associate more events after {second_iter} second pass iterations."
+                        f"Did not associate more events after {second_iter + 1} second pass iterations."
                     )
                     break
                 elif len(events2) > 0:  # Skip this if there is anyhow no event
@@ -680,7 +685,7 @@ class OctoAssociator:
                         event_idx_correction = events["idx"].max() + 1
                         events2["idx"] += event_idx_correction
                         assignments2["event_idx"] += event_idx_correction
-    
+
                     # Map pick idx to the orginal one (idx) instead of the subset one (idx2)
                     assignments2 = pd.merge(
                         assignments2,
@@ -694,10 +699,10 @@ class OctoAssociator:
                     assignments2 = assignments2[
                         ["event_idx", "pick_idx", "residual"]
                     ].copy()
-    
+
                     events = pd.concat([events, events2])
                     assignments = pd.concat([assignments, assignments2])
-    
+
                     events.sort_values("time", inplace=True)
                     events.reset_index(drop=True, inplace=True)
                     assignments.reset_index(drop=True, inplace=True)
@@ -706,7 +711,7 @@ class OctoAssociator:
             assignments, picks_org, left_on="pick_idx", right_on="idx", validate="m:1"
         )
         assignments.drop(columns="idx", inplace=True)
-        
+
         return events, assignments
 
     # Note: Missing type annotation to avoid SeisBench import
