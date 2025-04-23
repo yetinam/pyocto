@@ -318,6 +318,8 @@ class OctoAssociator:
                                    by setting a high ``n_picks`` and a low ``n_s_picks`` and a low ``n_p_and_s_picks``.
                                    At the same time, these settings might not be advisable for a larger processing
                                    because it will lead to many missed small events with lower numbers of P picks.
+                                   The number of iterations for the second pass can be controlled with the keyword
+                                   ``iterations``. If it is not set, only a single second pass is performed.
     :param n_threads: The number of threads to use.
                       By default, the number of threads will be set to the number of available cores.
     :param velocity_model_location: The velocity model for location.
@@ -644,56 +646,67 @@ class OctoAssociator:
         picks_org["idx"] = np.arange(len(picks_org))
 
         if self.second_pass_overwrites is not None:
-            # Perform second association pass with the unused picks
-            picks_sub = picks_org[~picks_org["idx"].isin(assignments["pick_idx"])].copy(
-                deep=True
-            )  # Only unused picks
-            picks_sub["idx2"] = np.arange(len(picks_sub))
-            picks_cpp = self._convert_picks(picks_sub)
+            second_pass_iterations = self.second_pass_overwrites.pop("iterations",
+                                                                     None)
+            if not second_pass_iterations:
+                second_pass_iterations = 1
 
-            config = self._build_config(stations_cpp, second_pass=True)
-
-            associator = backend.OctoAssociator(config)
-
-            events_cpp = associator.associate(picks_cpp)
-            self._cached_pointers = (
-                {}
-            )  # Delete cached objects and allow garbage collection
-            events2, assignments2 = self._parse_events(events_cpp)
-
-            if len(events2) > 0:  # Skip this if there is anyhow no event
-                # Update event_idx to be non-intersecting with original output
-                if len(events) > 0:
-                    event_idx_correction = events["idx"].max() + 1
-                    events2["idx"] += event_idx_correction
-                    assignments2["event_idx"] += event_idx_correction
-
-                # Map pick idx to the orginal one (idx) instead of the subset one (idx2)
-                assignments2 = pd.merge(
-                    assignments2,
-                    picks_sub,
-                    left_on="pick_idx",
-                    right_on="idx2",
-                    validate="m:1",
-                )
-                assignments2.drop(columns="pick_idx", inplace=True)
-                assignments2.rename(columns={"idx": "pick_idx"}, inplace=True)
-                assignments2 = assignments2[
-                    ["event_idx", "pick_idx", "residual"]
-                ].copy()
-
-                events = pd.concat([events, events2])
-                assignments = pd.concat([assignments, assignments2])
-
-                events.sort_values("time", inplace=True)
-                events.reset_index(drop=True, inplace=True)
-                assignments.reset_index(drop=True, inplace=True)
+            for second_iter in range(second_pass_iterations):
+                # Perform second association pass with the unused picks
+                picks_sub = picks_org[~picks_org["idx"].isin(assignments["pick_idx"])].copy(
+                    deep=True
+                )  # Only unused picks
+                picks_sub["idx2"] = np.arange(len(picks_sub))
+                picks_cpp = self._convert_picks(picks_sub)
+    
+                config = self._build_config(stations_cpp, second_pass=True)
+    
+                associator = backend.OctoAssociator(config)
+    
+                events_cpp = associator.associate(picks_cpp)
+                self._cached_pointers = (
+                    {}
+                )  # Delete cached objects and allow garbage collection
+                events2, assignments2 = self._parse_events(events_cpp)
+                
+                if len(events2) == 0:  # Stop iterations of second_pass_overwrites if no event was found
+                    logger.warning(
+                        f"Did not associate more events after {second_iter} second pass iterations."
+                    )
+                    break
+                elif len(events2) > 0:  # Skip this if there is anyhow no event
+                    # Update event_idx to be non-intersecting with original output
+                    if len(events) > 0:
+                        event_idx_correction = events["idx"].max() + 1
+                        events2["idx"] += event_idx_correction
+                        assignments2["event_idx"] += event_idx_correction
+    
+                    # Map pick idx to the orginal one (idx) instead of the subset one (idx2)
+                    assignments2 = pd.merge(
+                        assignments2,
+                        picks_sub,
+                        left_on="pick_idx",
+                        right_on="idx2",
+                        validate="m:1",
+                    )
+                    assignments2.drop(columns="pick_idx", inplace=True)
+                    assignments2.rename(columns={"idx": "pick_idx"}, inplace=True)
+                    assignments2 = assignments2[
+                        ["event_idx", "pick_idx", "residual"]
+                    ].copy()
+    
+                    events = pd.concat([events, events2])
+                    assignments = pd.concat([assignments, assignments2])
+    
+                    events.sort_values("time", inplace=True)
+                    events.reset_index(drop=True, inplace=True)
+                    assignments.reset_index(drop=True, inplace=True)
 
         assignments = pd.merge(
             assignments, picks_org, left_on="pick_idx", right_on="idx", validate="m:1"
         )
         assignments.drop(columns="idx", inplace=True)
-
+        
         return events, assignments
 
     # Note: Missing type annotation to avoid SeisBench import
