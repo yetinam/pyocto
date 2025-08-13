@@ -64,7 +64,7 @@ Alternatively, you can install PyOcto from source by cloning the
 
    If you're using PyOcto in your work, please cite
 
-      Münchmeyer, J. (2023). PyOcto: A high-throughput seismic phase associator. Preprint at `arxiv.org/abs/2310.11157 <https://arxiv.org/abs/2310.11157>`_.
+      Münchmeyer, J. (2024). PyOcto: A high-throughput seismic phase associator. Seismica. `doi:10.26443/seismica.v3i1.1130 <https://doi.org/10.26443/seismica.v3i1.1130>`_.
 
 .. toctree::
     :maxdepth: 2
