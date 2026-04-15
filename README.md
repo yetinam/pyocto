@@ -38,7 +38,7 @@ standard channels, such as `pip` or `conda`.
 git clone https://github.com/yetinam/pyocto.git
 cd pyocto
 git submodule update --init
-pip install .[test]
+pip install '.[test]'
 ```
 
 To verify your installation is working, use `pytest tests/`.

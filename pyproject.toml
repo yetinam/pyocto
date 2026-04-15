@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
     { name = "My Name", email = "me@email.com" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -20,9 +20,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "numpy>=1.21.6",
+    "numpy>=1.21.6,<3; python_version>'3.11'",   # numpy>2 is allowed for python>3.11
+    "numpy>=1.21.6,<2; python_version<='3.11'",  # numpy<2 is pinned for python<=3.11 due to Pyrocko incompatibility
     "pandas>=1.1",
-    "numpy<2",  # Pinned for now because there seems to be a Pyrocko incompatibility
     "pyproj",
 ]
 
