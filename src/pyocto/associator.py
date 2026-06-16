@@ -41,8 +41,6 @@ class VelocityModel0D(VelocityModel):
     :param s_velocity: S wave velocity in km/s
     :param tolerance: Velocity model tolerance in s
     :param association_cutoff_distance: Only use stations up to this distance for space-partitioning association
-    :param location_cutoff_distance: Only use stations up to this distance for location.
-                                     Only such picks will be included in the assignments of the associator.
     """
 
     def __init__(
@@ -51,13 +49,11 @@ class VelocityModel0D(VelocityModel):
         s_velocity: float,
         tolerance: float,
         association_cutoff_distance: float = None,
-        location_cutoff_distance: float = None,
     ):
         self.p_velocity = p_velocity
         self.s_velocity = s_velocity
         self.tolerance = tolerance
         self.association_cutoff_distance = association_cutoff_distance
-        self.location_cutoff_distance = location_cutoff_distance
 
     def to_cpp(self, stations: list[backend.Station]) -> backend.VelocityModel:
         # Do the conversion to float explicitly to avoid crashes
@@ -65,9 +61,7 @@ class VelocityModel0D(VelocityModel):
         if association_cutoff_distance is None:
             association_cutoff_distance = 1e9  # Infinity
 
-        location_cutoff_distance = self.location_cutoff_distance
-        if location_cutoff_distance is None:
-            location_cutoff_distance = 1e9  # Infinity
+        location_cutoff_distance = 1e9  # Infinity
 
         model = backend.VelocityModel0D(
             float(self.p_velocity),
@@ -87,11 +81,14 @@ class VelocityModel1D(VelocityModel):
     To create this representation, please use :py:func:`create_model`. This step only needs
     to be executed once.
 
+    .. warning ::
+
+        The 1D model should always be larger than the search domain diagonal. Otherwise, the location algorithm might
+        run into minimization errors.
+
     :param path: Path to the travel-time table
     :param tolerance: Velocity model tolerance in s
     :param association_cutoff_distance: Only use stations up to this distance for space-partitioning association
-    :param location_cutoff_distance: Only use stations up to this distance for location.
-                                     Only such picks will be included in the assignments of the associator.
     :param surface_p_velocity: P wave velocity used for elevation correction in km/s
     :param surface_s_velocity: S wave velocity used for elevation correction in km/s
 
@@ -105,14 +102,12 @@ class VelocityModel1D(VelocityModel):
         path: Union[str, Path],
         tolerance: float,
         association_cutoff_distance: float = None,
-        location_cutoff_distance: float = None,
         surface_p_velocity: float = None,
         surface_s_velocity: float = None,
     ):
         self.path = path
         self.tolerance = tolerance
         self.association_cutoff_distance = association_cutoff_distance
-        self.location_cutoff_distance = location_cutoff_distance
         self.surface_p_velocity = surface_p_velocity
         self.surface_s_velocity = surface_s_velocity
 
@@ -125,8 +120,6 @@ class VelocityModel1D(VelocityModel):
             model.surface_s_velocity = self.surface_s_velocity
         if self.association_cutoff_distance is not None:
             model.association_cutoff_distance = self.association_cutoff_distance
-        if self.location_cutoff_distance is not None:
-            model.location_cutoff_distance = self.location_cutoff_distance
         for station in stations:
             model.add_station(station)
         return model
