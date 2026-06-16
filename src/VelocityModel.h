@@ -94,6 +94,8 @@ private:
   }; // Helper function for indexing dynamic 2D array
 
   void precalculate_extrema();
+  // There vectors hold for each index x the indices of the local minima/maxima
+  // along z
   std::vector<std::vector<int>> local_minima_p;
   std::vector<std::vector<int>> local_minima_s;
   std::vector<std::vector<int>> local_maxima_p;

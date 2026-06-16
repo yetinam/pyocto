@@ -238,13 +238,13 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick) {
   std::vector<double> max_candidates = {times[index(ix_max, iz_min)],
                                         times[index(ix_max, iz_max)]};
 
-  for (auto z : local_minima) {
-    if (volume.z_min() <= z and z <= volume.z_max())
-      min_candidates.push_back(times[index(ix_min, z)]);
+  for (auto z_idx : local_minima) {
+    if (volume.z_min() <= z_idx * delta and z_idx * delta <= volume.z_max())
+      min_candidates.push_back(times[index(ix_min, z_idx)]);
   }
-  for (auto z : local_maxima) {
-    if (volume.z_min() <= z and z <= volume.z_max())
-      max_candidates.push_back(times[index(ix_max, z)]);
+  for (auto z_idx : local_maxima) {
+    if (volume.z_min() <= z_idx * delta and z_idx * delta <= volume.z_max())
+      max_candidates.push_back(times[index(ix_max, z_idx)]);
   }
 
   auto min_tt = *std::min_element(min_candidates.begin(), min_candidates.end());
@@ -265,20 +265,20 @@ void VelocityModel1D::precalculate_extrema() {
   local_minima_p.resize(nx);
   local_maxima_s.resize(nx);
   local_minima_s.resize(nx);
-  for (int x = 0; x < nx; ++x) {
-    for (int z = 1; z < nz - 1; ++z) {
-      if (p_times[index(x, z - 1)] <= p_times[index(x, z)] and
-          p_times[index(x, z + 1)] <= p_times[index(x, z)])
-        local_maxima_p[x].push_back(z);
-      if (s_times[index(x, z - 1)] <= s_times[index(x, z)] and
-          s_times[index(x, z + 1)] <= s_times[index(x, z)])
-        local_maxima_s[x].push_back(z);
-      if (p_times[index(x, z - 1)] >= p_times[index(x, z)] and
-          p_times[index(x, z + 1)] >= p_times[index(x, z)])
-        local_minima_p[x].push_back(z);
-      if (s_times[index(x, z - 1)] >= s_times[index(x, z)] and
-          s_times[index(x, z + 1)] >= s_times[index(x, z)])
-        local_minima_s[x].push_back(z);
+  for (int x_idx = 0; x_idx < nx; ++x_idx) {
+    for (int z_idx = 1; z_idx < nz - 1; ++z_idx) {
+      if (p_times[index(x_idx, z_idx - 1)] <= p_times[index(x_idx, z_idx)] and
+          p_times[index(x_idx, z_idx + 1)] <= p_times[index(x_idx, z_idx)])
+        local_maxima_p[x_idx].push_back(z_idx);
+      if (s_times[index(x_idx, z_idx - 1)] <= s_times[index(x_idx, z_idx)] and
+          s_times[index(x_idx, z_idx + 1)] <= s_times[index(x_idx, z_idx)])
+        local_maxima_s[x_idx].push_back(z_idx);
+      if (p_times[index(x_idx, z_idx - 1)] >= p_times[index(x_idx, z_idx)] and
+          p_times[index(x_idx, z_idx + 1)] >= p_times[index(x_idx, z_idx)])
+        local_minima_p[x_idx].push_back(z_idx);
+      if (s_times[index(x_idx, z_idx - 1)] >= s_times[index(x_idx, z_idx)] and
+          s_times[index(x_idx, z_idx + 1)] >= s_times[index(x_idx, z_idx)])
+        local_minima_s[x_idx].push_back(z_idx);
     }
   }
 }
