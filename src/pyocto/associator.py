@@ -173,10 +173,16 @@ class VelocityModel1D(VelocityModel):
             )
 
             p_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
-                vp1, vp2, int(depth2 / delta) - int(depth1 / delta)
+                vp1,
+                vp2,
+                int(depth2 / delta) - int(depth1 / delta),
+                endpoint=False,
             )
             s_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
-                vs1, vs2, int(depth2 / delta) - int(depth1 / delta)
+                vs1,
+                vs2,
+                int(depth2 / delta) - int(depth1 / delta),
+                endpoint=False,
             )
 
         last = model.iloc[-1]
@@ -498,12 +504,12 @@ class OctoAssociator:
         if self.n_threads is not None:
             config.n_threads = self.n_threads
 
-        self._cached_pointers[
-            "velocity_model_association"
-        ] = self.velocity_model_association.to_cpp(stations)
-        self._cached_pointers[
-            "velocity_model_location"
-        ] = self.velocity_model_location.to_cpp(stations)
+        self._cached_pointers["velocity_model_association"] = (
+            self.velocity_model_association.to_cpp(stations)
+        )
+        self._cached_pointers["velocity_model_location"] = (
+            self.velocity_model_location.to_cpp(stations)
+        )
 
         config.velocity_model_association = self._cached_pointers[
             "velocity_model_association"
