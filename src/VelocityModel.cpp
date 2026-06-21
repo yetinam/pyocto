@@ -7,6 +7,9 @@
 
 #include "VelocityModel.h"
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 std::pair<double, double>
 octoassociator::VelocityModel::min_max_dist(double x, double wx, double px) {
   double min_dist, max_dist;
@@ -281,6 +284,74 @@ void VelocityModel1D::precalculate_extrema() {
         local_minima_s[x_idx].push_back(z_idx);
     }
   }
+}
+
+StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path) {
+  printf("Read travel time tables from directory %s\n", path);
+  for (const auto &entry : fs::directory_iterator(path)) {
+    if (entry.is_regular_file()) {
+      std::string filename = entry.path().filename().string();
+      if (filename[0] == '.') {
+        continue; // Skip hidden files, such as .DS_STORE
+      }
+      if (filename.compare("n_padding") == 0) {
+        auto f = fopen(entry.path().c_str(), "rb");
+        fread(&n_padding, 4, 1, f);
+        fclose(f);
+      } else {
+        std::string file_path = entry.path().string();
+        std::string station_name = filename.substr(0, filename.find_last_of("."));
+        VelocityModel1D* model = new VelocityModel1D(file_path.data()); // to avoid double free
+        models.insert(std::pair<std::string, VelocityModel1D*>(station_name, model));
+      }
+    }
+  }
+}
+
+bool StationSpecificVelocityModel1D::contains(const Volume &volume,
+                                              const Pick *pick) {
+  auto station_it = stations.find(pick->station);
+  if (station_it == stations.end()) {
+    printf("Warning: Station %s not found\n", pick->station.c_str());
+    return false;
+  }
+  auto &station = station_it->second;
+
+  
+  auto model_it = models.find(pick->station);
+  auto &current_model = model_it->second;
+
+  double z_shift = -station.z + n_padding * current_model->get_delta();
+  const Volume volume_new_z =
+      Volume(volume.x, volume.y, volume.z + z_shift, volume.t, volume.wx,
+             volume.wy, volume.wz, volume.wt);
+  return current_model->contains(volume_new_z, pick);
+}
+
+double StationSpecificVelocityModel1D::travel_time(const Volume &volume,
+                                                   const std::string &station,
+                                                   char phase) {
+  auto station_it = stations.find(station);
+  if (station_it == stations.end()) {
+    printf("Warning: Station %s not found\n", station.c_str());
+    return NAN;
+  }
+
+  auto model_it = models.find(station);
+  if (model_it == models.end()) {
+    printf("Warning: Travel time table for station %s not found\n",
+           station.c_str());
+    return NAN;
+  }
+
+  const auto &station_obj = station_it->second;
+  auto &current_model = model_it->second;
+
+  double z_shift = -station_obj.z + n_padding * current_model->get_delta();
+  const Volume volume_new_z =
+      Volume(volume.x, volume.y, volume.z + z_shift, volume.t, volume.wx,
+             volume.wy, volume.wz, volume.wt);
+  return current_model->travel_time(volume_new_z, station, phase);
 }
 
 } // namespace octoassociator

@@ -75,6 +75,14 @@ PYBIND11_MODULE(_core, m) {
                      &VelocityModel1D::location_cutoff_distance)
       .def_readwrite("tolerance", &VelocityModel1D::tolerance);
 
+  py::class_<StationSpecificVelocityModel1D>(m, "StationSpecificVelocityModel1D", velocity_model)
+      .def(py::init<char *>())
+      .def_readwrite("association_cutoff_distance",
+                     &StationSpecificVelocityModel1D::association_cutoff_distance)
+      .def_readwrite("location_cutoff_distance",
+                     &StationSpecificVelocityModel1D::location_cutoff_distance)
+      .def_readwrite("tolerance", &StationSpecificVelocityModel1D::tolerance);      
+
   py::class_<Pick>(m, "Pick")
       .def(py::init<int, double, std::string, char>())
       .def_readonly("idx", &Pick::idx)

@@ -246,6 +246,105 @@ class VelocityModel1D(VelocityModel):
         )
 
 
+class StationSpecificVelocityModel1D(VelocityModel):
+    def __init__(
+        self,
+        path: Union[str, Path],
+        tolerance: float,
+        association_cutoff_distance: float = None,
+        surface_p_velocity: float = None,
+        surface_s_velocity: float = None,
+    ):
+        self.path = path
+        self.tolerance = tolerance
+        self.association_cutoff_distance = association_cutoff_distance
+        self.surface_p_velocity = surface_p_velocity
+        self.surface_s_velocity = surface_s_velocity
+
+    def to_cpp(self, stations: list[backend.Station]) -> backend.VelocityModel:
+
+        model = backend.StationSpecificVelocityModel1D(str(self.path))
+        model.tolerance = self.tolerance
+        if self.association_cutoff_distance is not None:
+            model.association_cutoff_distance = self.association_cutoff_distance
+        for station in stations:
+            model.add_station(station)
+        return model
+
+    @staticmethod
+    def create_model(
+        model: pd.DataFrame,
+        delta: float,
+        xdist: float,
+        zdist: float,
+        path: Union[str, Path],
+        n_padding: int,
+        station: pd.DataFrame,
+    ) -> None:
+        try:
+            from pyrocko.modelling import eikonal
+        except ImportError:
+            raise ImportError(
+                "Creating a velocity model requires pyrocko. "
+                "Please install the package and try again."
+            )
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        nx = int(xdist / delta)
+        nz = int(zdist / delta) + n_padding
+        for station_id, elevation in zip(station["id"], station["elevation"]):
+            p_speeds = np.ones((nx, nz))
+            p_times = -np.ones_like(p_speeds)
+            p_times[0, n_padding] = 0.0
+
+            s_speeds = np.ones((nx, nz))
+            s_times = -np.ones_like(s_speeds)
+            s_times[0, n_padding] = 0.0
+            sta_depth = -elevation / 1000.0
+            for i in range(len(model) - 1):
+                depth1 = model.iloc[i]["depth"]
+                depth2 = model.iloc[i + 1]["depth"]
+                vp1 = model.iloc[i]["vp"]
+                vp2 = model.iloc[i + 1]["vp"]
+                vs1 = model.iloc[i]["vs"]
+                vs2 = model.iloc[i + 1]["vs"]
+
+                depth1 = depth1 - sta_depth + n_padding * delta
+                depth2 = depth2 - sta_depth + n_padding * delta
+                depth1, depth2, vp1, vp2, vs1, vs2 = (
+                    VelocityModel1D._adjust_depth_velocity(
+                        depth1, depth2, vp1, vp2, vs1, vs2, zdist
+                    )
+                )
+                p_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
+                    vp1,
+                    vp2,
+                    int(depth2 / delta) - int(depth1 / delta),
+                    endpoint=False,
+                )
+                s_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
+                    vs1,
+                    vs2,
+                    int(depth2 / delta) - int(depth1 / delta),
+                    endpoint=False,
+                )
+
+                if i == 0 and int(depth1 / delta) > 0:
+                    p_speeds[:, : int(depth1 / delta)] = vp1
+                    s_speeds[:, : int(depth1 / delta)] = vs1
+                if i == len(model) - 2 and int(depth2 / delta) < nz:
+                    p_speeds[:, int(depth2 / delta) :] = vp2
+                    s_speeds[:, int(depth2 / delta) :] = vs2
+            eikonal.eikonal_solver_fmm_cartesian(p_speeds, p_times, delta)
+            eikonal.eikonal_solver_fmm_cartesian(s_speeds, s_times, delta)
+            with open(path / f"{station_id}.pyocto", "wb") as f:
+                f.write(struct.pack("iid", nx, nz, delta))
+                f.write(p_times.tobytes())
+                f.write(s_times.tobytes())
+        with open(path / "n_padding", "wb") as f:
+            f.write(struct.pack("i", n_padding))
+
+
 class OctoAssociator:
     """
     The OctoAssociator is the main class of PyOcto. An instance of this associator
