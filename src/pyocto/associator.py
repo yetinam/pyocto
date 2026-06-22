@@ -247,19 +247,37 @@ class VelocityModel1D(VelocityModel):
 
 
 class StationSpecificVelocityModel1D(VelocityModel):
+    """
+    Station specific 1D layered velocity models. PyOcto uses a binary representation of the travel-time tables.
+    For each station, an individual travel time table is calculated, for which the station elevation is considered as the origin in the z axis (pointing downwards, unit: km).
+    To create this representation, please use :py:func:`create_model`. This step only needs
+    to be executed once. A dataframe with a column of station names and a column of elevations (meters above sea level) should be passed to `create_model`. To allow for events above the station elevation, a constant number of padding nodes are added above the station. The thickness of the padding layers of is given by `z_padding_thickness`.
+
+    .. warning ::
+
+        The 1D model should always be larger than the search domain diagonal. Otherwise, the location algorithm might
+        run into minimization errors.
+
+    :param path: Path to the travel-time table
+    :param tolerance: Velocity model tolerance in s
+    :param association_cutoff_distance: Only use stations up to this distance for space-partitioning association
+    :param surface_p_velocity: P wave velocity used for elevation correction in km/s
+    :param surface_s_velocity: S wave velocity used for elevation correction in km/s
+
+    .. warning::
+
+        The VelocityModel1D does currently not allow search spaces above the surface, i.e., negative values of z.
+    """
+
     def __init__(
         self,
         path: Union[str, Path],
         tolerance: float,
         association_cutoff_distance: float = None,
-        surface_p_velocity: float = None,
-        surface_s_velocity: float = None,
     ):
         self.path = path
         self.tolerance = tolerance
         self.association_cutoff_distance = association_cutoff_distance
-        self.surface_p_velocity = surface_p_velocity
-        self.surface_s_velocity = surface_s_velocity
 
     def to_cpp(self, stations: list[backend.Station]) -> backend.VelocityModel:
 
@@ -277,10 +295,21 @@ class StationSpecificVelocityModel1D(VelocityModel):
         delta: float,
         xdist: float,
         zdist: float,
-        path: Union[str, Path],
-        n_padding: int,
+        z_padding_thickness: float,
         station: pd.DataFrame,
+        path: Union[str, Path],
     ) -> None:
+        """
+        Create travel time tables from a 1D layered velocity model for PyOcto from a data frame. The numbers of nodes in the x and z direction and padding nodes are inferred from `xdist`, `zdist` and `z_padding_thickness`.
+
+        :param model: DataFrame with columns depth, vp, vs
+        :param delta: Grid spacing in kilometer
+        :param xdist: Maximum distance in horizontal direction in km
+        :param zdist: Maximum distance in vertical direction in km
+        :param path: Output path
+        :param z_padding_thickness: Thickness of the padding layers in km
+        :param station: DataFrame with columns id and elevation. Elevation is defined as meters above sea level.
+        """
         try:
             from pyrocko.modelling import eikonal
         except ImportError:
@@ -290,6 +319,7 @@ class StationSpecificVelocityModel1D(VelocityModel):
             )
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
+        n_padding = int(np.ceil(z_padding_thickness / delta))
         nx = int(xdist / delta)
         nz = int(zdist / delta) + n_padding
         for station_id, elevation in zip(station["id"], station["elevation"]):

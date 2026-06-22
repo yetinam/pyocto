@@ -12,6 +12,10 @@
 #include <vector>
 
 #include "types.h"
+
+#include <filesystem>
+namespace fs = std::filesystem;
+
 namespace octoassociator {
 
 class VelocityModel {
@@ -111,6 +115,7 @@ public:
   double association_cutoff_distance = 1e9;
   double location_cutoff_distance = 1e9;
   std::map<std::string, VelocityModel1D *> models;
+  fs::path model_dir;
 
   explicit StationSpecificVelocityModel1D(char *path);
   ~StationSpecificVelocityModel1D() {
@@ -122,10 +127,9 @@ public:
   bool contains(const Volume &volume, const Pick *pick) override;
   double travel_time(const Volume &volume, const std::string &station,
                      char phase) override;
-  void add_station(const Station &station) override {
-    stations[station.id] = station;
-    models[station.id]->add_station(station);
-  }
+  void add_station(const Station &station) override;
+
+  // void remove_unused_models() ;
 
 private:
   int n_padding{};
