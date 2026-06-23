@@ -319,7 +319,13 @@ void StationSpecificVelocityModel1D::add_station(const Station &station) {
   // ptimes/stimes
   VelocityModel1D *model = new VelocityModel1D(model_file_path.string().data());
   models.insert(std::pair<std::string, VelocityModel1D *>(station.id, model));
-  models[station.id]->add_station(station);
+  Station station_no_z = Station(station.id, station.x, station.y, 0.0,
+                                station.p_residual, station.s_residual);
+  models[station.id]->add_station(station_no_z);
+  models[station.id]->tolerance = tolerance;
+  models[station.id]->association_cutoff_distance = association_cutoff_distance;
+  models[station.id]->surface_p_velocity = 1e10;
+  models[station.id]->surface_s_velocity = 1e10;
 }
 
 bool StationSpecificVelocityModel1D::contains(const Volume &volume,

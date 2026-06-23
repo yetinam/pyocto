@@ -113,7 +113,6 @@ class StationSpecificVelocityModel1D : public VelocityModel {
 public:
   double tolerance = 1.;
   double association_cutoff_distance = 1e9;
-  double location_cutoff_distance = 1e9;
   std::map<std::string, VelocityModel1D *> models;
   fs::path model_dir;
 
@@ -128,6 +127,19 @@ public:
   double travel_time(const Volume &volume, const std::string &station,
                      char phase) override;
   void add_station(const Station &station) override;
+
+  void set_tolerance(double new_tolerance) {
+    tolerance = new_tolerance;
+    for (auto &model : models) {
+      (model.second)->tolerance = new_tolerance;
+    }
+  }
+  void set_association_cutoff_distance(double new_value) {
+    association_cutoff_distance = new_value;
+    for (auto &model : models) {
+      (model.second)->association_cutoff_distance = new_value;
+    }
+  }
 
   // void remove_unused_models() ;
 
