@@ -320,7 +320,7 @@ void StationSpecificVelocityModel1D::add_station(const Station &station) {
   VelocityModel1D *model = new VelocityModel1D(model_file_path.string().data());
   models.insert(std::pair<std::string, VelocityModel1D *>(station.id, model));
   Station station_no_z = Station(station.id, station.x, station.y, 0.0,
-                                station.p_residual, station.s_residual);
+                                 station.p_residual, station.s_residual);
   models[station.id]->add_station(station_no_z);
   models[station.id]->tolerance = tolerance;
   models[station.id]->association_cutoff_distance = association_cutoff_distance;
