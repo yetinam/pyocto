@@ -55,7 +55,7 @@ public:
                   double location_cutoff_distance)
       : p_velocity(p_velocity), s_velocity(s_velocity), tolerance(tolerance),
         association_cutoff_distance(association_cutoff_distance),
-        location_cutoff_distance(location_cutoff_distance) {};
+        location_cutoff_distance(location_cutoff_distance){};
   bool contains(const Volume &volume, const Pick *pick) override;
   double travel_time(const Volume &volume, const std::string &station,
                      char phase) override;
