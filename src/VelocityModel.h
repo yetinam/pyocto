@@ -13,6 +13,9 @@
 
 #include "types.h"
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 namespace octoassociator {
 
 class VelocityModel {
@@ -23,7 +26,9 @@ public:
   double travel_time(const Volume &volume, const Pick *pick) {
     return travel_time(volume, pick->station, pick->phase);
   }; // Travel time from centroid to pick
-  void add_station(const Station &station) { stations[station.id] = station; }
+  virtual void add_station(const Station &station) {
+    stations[station.id] = station;
+  }
   std::map<std::string, Station> stations;
   std::set<Station, StationCompare>
   get_active_stations(const std::vector<Pick *> &picks);
@@ -82,6 +87,8 @@ public:
                      char phase) override;
   double travel_time(double x, double z, char phase);
 
+  double get_delta() const { return delta; }
+
 private:
   int nx{}, nz{};  // Number of nodes in each direction
   double delta{};  // Spacing between nodes
@@ -100,6 +107,44 @@ private:
   std::vector<std::vector<int>> local_minima_s;
   std::vector<std::vector<int>> local_maxima_p;
   std::vector<std::vector<int>> local_maxima_s;
+};
+
+class StationSpecificVelocityModel1D : public VelocityModel {
+public:
+  double tolerance = 1.;
+  double association_cutoff_distance = 1e9;
+  std::map<std::string, VelocityModel1D *> models;
+  fs::path model_dir;
+
+  explicit StationSpecificVelocityModel1D(char *path);
+  ~StationSpecificVelocityModel1D() {
+    // printf("Deleting StationSpecificVelocityModel1D\n");
+    for (auto &model : models) {
+      delete model.second;
+    }
+  }
+  bool contains(const Volume &volume, const Pick *pick) override;
+  double travel_time(const Volume &volume, const std::string &station,
+                     char phase) override;
+  void add_station(const Station &station) override;
+
+  void set_tolerance(double new_tolerance) {
+    tolerance = new_tolerance;
+    for (auto &model : models) {
+      (model.second)->tolerance = new_tolerance;
+    }
+  }
+  void set_association_cutoff_distance(double new_value) {
+    association_cutoff_distance = new_value;
+    for (auto &model : models) {
+      (model.second)->association_cutoff_distance = new_value;
+    }
+  }
+
+  // void remove_unused_models() ;
+
+private:
+  int n_padding{};
 };
 
 } // namespace octoassociator

@@ -246,6 +246,136 @@ class VelocityModel1D(VelocityModel):
         )
 
 
+class StationSpecificVelocityModel1D(VelocityModel):
+    """
+    Station specific 1D layered velocity models. PyOcto uses a binary representation of the travel-time tables.
+    For each station, an individual travel time table is calculated, for which the station elevation is considered as the origin in the z axis (pointing downwards, unit: km).
+    To create this representation, please use :py:func:`create_model`. This step only needs
+    to be executed once. A dataframe with a column of station names and a column of elevations (meters above sea level) should be passed to `create_model`. To allow for events above the station elevation, a constant number of padding nodes are added above the station. The thickness of the padding layers of is given by `z_padding_thickness`.
+
+    .. warning ::
+
+        The 1D model should always be larger than the search domain diagonal. Otherwise, the location algorithm might
+        run into minimization errors.
+
+    :param path: Path to the travel-time table
+    :param tolerance: Velocity model tolerance in s
+    :param association_cutoff_distance: Only use stations up to this distance for space-partitioning association
+    :param surface_p_velocity: P wave velocity used for elevation correction in km/s
+    :param surface_s_velocity: S wave velocity used for elevation correction in km/s
+
+    .. warning::
+
+        The VelocityModel1D does currently not allow search spaces above the surface, i.e., negative values of z.
+    """
+
+    def __init__(
+        self,
+        path: Union[str, Path],
+        tolerance: float,
+        association_cutoff_distance: float = None,
+    ):
+        self.path = path
+        self.tolerance = tolerance
+        self.association_cutoff_distance = association_cutoff_distance
+
+    def to_cpp(self, stations: list[backend.Station]) -> backend.VelocityModel:
+
+        model = backend.StationSpecificVelocityModel1D(str(self.path))
+        model.tolerance = self.tolerance
+        if self.association_cutoff_distance is not None:
+            model.association_cutoff_distance = self.association_cutoff_distance
+        for station in stations:
+            model.add_station(station)
+        return model
+
+    @staticmethod
+    def create_model(
+        model: pd.DataFrame,
+        delta: float,
+        xdist: float,
+        zdist: float,
+        z_padding_thickness: float,
+        station: pd.DataFrame,
+        path: Union[str, Path],
+    ) -> None:
+        """
+        Create travel time tables from a 1D layered velocity model for PyOcto from a data frame. The numbers of nodes in the x and z direction and padding nodes are inferred from `xdist`, `zdist` and `z_padding_thickness`.
+
+        :param model: DataFrame with columns depth, vp, vs
+        :param delta: Grid spacing in kilometer
+        :param xdist: Maximum distance in horizontal direction in km
+        :param zdist: Maximum distance in vertical direction in km
+        :param path: Output path
+        :param z_padding_thickness: Thickness of the padding layers in km
+        :param station: DataFrame with columns id and elevation. Elevation is defined as meters above sea level.
+        """
+        try:
+            from pyrocko.modelling import eikonal
+        except ImportError:
+            raise ImportError(
+                "Creating a velocity model requires pyrocko. "
+                "Please install the package and try again."
+            )
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        n_padding = int(np.ceil(z_padding_thickness / delta))
+        nx = int(xdist / delta)
+        nz = int(zdist / delta) + n_padding
+        zdist = zdist + n_padding * delta
+        for station_id, elevation in zip(station["id"], station["elevation"]):
+            p_speeds = np.ones((nx, nz))
+            p_times = -np.ones_like(p_speeds)
+            p_times[0, n_padding] = 0.0
+
+            s_speeds = np.ones((nx, nz))
+            s_times = -np.ones_like(s_speeds)
+            s_times[0, n_padding] = 0.0
+            sta_depth = -elevation / 1000.0
+            for i in range(len(model) - 1):
+                depth1 = model.iloc[i]["depth"]
+                depth2 = model.iloc[i + 1]["depth"]
+                vp1 = model.iloc[i]["vp"]
+                vp2 = model.iloc[i + 1]["vp"]
+                vs1 = model.iloc[i]["vs"]
+                vs2 = model.iloc[i + 1]["vs"]
+
+                depth1 = depth1 - sta_depth + n_padding * delta
+                depth2 = depth2 - sta_depth + n_padding * delta
+                depth1, depth2, vp1, vp2, vs1, vs2 = (
+                    VelocityModel1D._adjust_depth_velocity(
+                        depth1, depth2, vp1, vp2, vs1, vs2, zdist
+                    )
+                )
+                p_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
+                    vp1,
+                    vp2,
+                    int(depth2 / delta) - int(depth1 / delta),
+                    endpoint=False,
+                )
+                s_speeds[:, int(depth1 / delta) : int(depth2 / delta)] = np.linspace(
+                    vs1,
+                    vs2,
+                    int(depth2 / delta) - int(depth1 / delta),
+                    endpoint=False,
+                )
+
+                if i == 0 and int(depth1 / delta) > 0:
+                    p_speeds[:, : int(depth1 / delta)] = vp1
+                    s_speeds[:, : int(depth1 / delta)] = vs1
+                if i == len(model) - 2 and int(depth2 / delta) < nz:
+                    p_speeds[:, int(depth2 / delta) :] = vp2
+                    s_speeds[:, int(depth2 / delta) :] = vs2
+            eikonal.eikonal_solver_fmm_cartesian(p_speeds, p_times, delta)
+            eikonal.eikonal_solver_fmm_cartesian(s_speeds, s_times, delta)
+            with open(path / f"{station_id}.pyocto", "wb") as f:
+                f.write(struct.pack("iid", nx, nz, delta))
+                f.write(p_times.tobytes())
+                f.write(s_times.tobytes())
+        with open(path / "n_padding", "wb") as f:
+            f.write(struct.pack("i", n_padding))
+
+
 class OctoAssociator:
     """
     The OctoAssociator is the main class of PyOcto. An instance of this associator

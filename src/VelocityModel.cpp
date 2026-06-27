@@ -283,4 +283,107 @@ void VelocityModel1D::precalculate_extrema() {
   }
 }
 
+StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path)
+    : model_dir(path) {
+  if (!fs::exists(model_dir) || !fs::is_directory(model_dir)) {
+    printf("Error: %s does not exist or is not a directory\n",
+           model_dir.c_str());
+    throw std::runtime_error(
+        "Failed to initialize StationSpecificVelocityModel1D: path should be a "
+        "directory containing binary travel time tables");
+  }
+  auto padding_info_file = model_dir / "n_padding";
+  if (!fs::exists(padding_info_file) ||
+      !fs::is_regular_file(padding_info_file)) {
+    throw std::runtime_error(
+        "File \"n_padding\" specifying the number of padding nodes is missing. "
+        "Please rebuild the model using create_model().");
+  }
+
+  auto f = fopen(padding_info_file.string().c_str(), "rb");
+  fread(&n_padding, 4, 1, f);
+  fclose(f);
+}
+
+void StationSpecificVelocityModel1D::add_station(const Station &station) {
+  stations[station.id] = station;
+
+  auto model_file_path = model_dir / (station.id + std::string(".pyocto"));
+  if (!fs::exists(model_file_path) || !fs::is_regular_file(model_file_path)) {
+    std::string err_msg = std::string("Travel time table for station") +
+                          station.id + std::string("not found");
+    throw std::runtime_error(err_msg);
+  }
+
+  // using a pointer instead of a local variable, to avoid double free of
+  // ptimes/stimes
+  VelocityModel1D *model = new VelocityModel1D(model_file_path.string().data());
+  models.insert(std::pair<std::string, VelocityModel1D *>(station.id, model));
+  Station station_no_z = Station(station.id, station.x, station.y, 0.0,
+                                 station.p_residual, station.s_residual);
+  models[station.id]->add_station(station_no_z);
+  models[station.id]->tolerance = tolerance;
+  models[station.id]->association_cutoff_distance = association_cutoff_distance;
+  models[station.id]->surface_p_velocity = 1e10;
+  models[station.id]->surface_s_velocity = 1e10;
+}
+
+bool StationSpecificVelocityModel1D::contains(const Volume &volume,
+                                              const Pick *pick) {
+  auto station_it = stations.find(pick->station);
+  if (station_it == stations.end()) {
+    printf("Warning: Station %s not found\n", pick->station.c_str());
+    return false;
+  }
+  auto &station = station_it->second;
+
+  auto model_it = models.find(pick->station);
+  auto &current_model = model_it->second;
+
+  double z_shift = -station.z + n_padding * current_model->get_delta();
+  const Volume volume_new_z =
+      Volume(volume.x, volume.y, volume.z + z_shift, volume.t, volume.wx,
+             volume.wy, volume.wz, volume.wt);
+  return current_model->contains(volume_new_z, pick);
+}
+
+double StationSpecificVelocityModel1D::travel_time(const Volume &volume,
+                                                   const std::string &station,
+                                                   char phase) {
+  auto station_it = stations.find(station);
+  if (station_it == stations.end()) {
+    printf("Warning: Station %s not found\n", station.c_str());
+    return NAN;
+  }
+
+  auto model_it = models.find(station);
+  if (model_it == models.end()) {
+    printf("Warning: Travel time table for station %s not found\n",
+           station.c_str());
+    return NAN;
+  }
+
+  const auto &station_obj = station_it->second;
+  auto &current_model = model_it->second;
+
+  double z_shift = -station_obj.z + n_padding * current_model->get_delta();
+  const Volume volume_new_z =
+      Volume(volume.x, volume.y, volume.z + z_shift, volume.t, volume.wx,
+             volume.wy, volume.wz, volume.wt);
+  return current_model->travel_time(volume_new_z, station, phase);
+}
+
+// void StationSpecificVelocityModel1D::remove_unused_models() {
+//   for (auto it = models.begin(); it != models.end();) {
+//     auto station_it = stations.find(it->first);
+//     if (station_it == stations.end()) {
+//       // if the station is not active, delete the associated travel time
+//       table it = models.erase(
+//           it); // remove it from the map and return the next iterator
+//     } else {
+//       ++it;
+//     }
+//   }
+// }
+
 } // namespace octoassociator
