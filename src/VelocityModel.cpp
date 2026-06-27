@@ -296,11 +296,11 @@ StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path)
   if (!fs::exists(padding_info_file) ||
       !fs::is_regular_file(padding_info_file)) {
     throw std::runtime_error(
-        "File \"padding\" specifying the number of padding nodes is missing. "
+        "File \"n_padding\" specifying the number of padding nodes is missing. "
         "Please rebuild the model using create_model().");
   }
 
-  auto f = fopen(padding_info_file.c_str(), "rb");
+  auto f = fopen(padding_info_file.string().c_str(), "rb");
   fread(&n_padding, 4, 1, f);
   fclose(f);
 }
