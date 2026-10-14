@@ -97,8 +97,6 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
     min_t += config->time_slicing;
   }
 
-  std::set<Pick *> used_picks;
-
 #ifdef SINGLE_THREAD
   unsigned int thread_count = config->n_threads;
   py::gil_scoped_release release;
@@ -220,7 +218,12 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
                                            int thread_id,
                                            unsigned int &thread_count) {
   // printf("Started thread %d\n", thread_id);
-  std::set<Pick *> used_picks;
+  // Pick indices are dense within one associate call, so a bitmap is sufficient
+  unsigned int max_pick_idx = 0;
+  for (const auto *base_node : base_nodes)
+    for (const auto *pick : base_node->picks.picks)
+      max_pick_idx = std::max(max_pick_idx, pick->idx + 1);
+  std::vector<bool> used_picks(max_pick_idx, false);
   std::vector<unsigned int> active_stations;
   std::deque<Node *> dfs_nodes;
   std::priority_queue<Node *, std::vector<Node *>, NodeCompare> active_nodes;
@@ -259,7 +262,7 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
       base_nodes.pop_front();
       // printf("Thread %d - got new base node\n", thread_id);
       // Reset processing status
-      used_picks = {};
+      std::fill(used_picks.begin(), used_picks.end(), false);
       grouped_picks = PickGrouper(node->picks.picks, n_stations);
       pick_group_cache.reset();
       active_stations = config->velocity_model_association->get_active_stations(
@@ -325,7 +328,7 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
 }
 
 bool OctoAssociator::create_event(
-    std::vector<Event> &events, std::set<Pick *> &used_picks,
+    std::vector<Event> &events, std::vector<bool> &used_picks,
     PickGrouper &grouped_picks, PickGroupCache &pick_group_cache,
     const std::vector<unsigned int> &active_stations, Node *node) {
   // printf("Creating event (%lu picks)\n", node->picks.n_picks());
@@ -351,7 +354,7 @@ bool OctoAssociator::create_event(
 
         auto pick = grouped_picks.pick_at_time(station, phase, volume.t + tt,
                                                config->pick_match_tolerance);
-        if (pick != nullptr and used_picks.find(pick) == used_picks.end()) {
+        if (pick != nullptr and not used_picks[pick->idx]) {
           new_picks.push_back(pick);
         }
       }
@@ -386,7 +389,7 @@ bool OctoAssociator::create_event(
   }
 
   for (auto pick : new_picks)
-    used_picks.insert(pick);
+    used_picks[pick->idx] = true;
   // printf("Created event (%lu picks, %lu events)\n", node->picks.n_picks(),
   // events.size());
   return true;
@@ -547,7 +550,8 @@ std::vector<Pick *> OctoAssociator::filter_distance_criterion(
     }
   }
 
-  std::set<unsigned int> delete_stations;
+  std::vector<bool> delete_station(
+      config->velocity_model_association->stations.size(), false);
   double pick_count = 0, total_count = 0;
   while (not entries.empty()) {
     auto entry = entries.top();
@@ -556,15 +560,15 @@ std::vector<Pick *> OctoAssociator::filter_distance_criterion(
     if (entry.has_pick) {
       pick_count++;
       if (pick_count / total_count < config->min_pick_fraction)
-        delete_stations.insert(entry.station);
+        delete_station[entry.station] = true;
     }
     if (pick_count / total_count >= config->min_pick_fraction)
-      delete_stations.clear();
+      std::fill(delete_station.begin(), delete_station.end(), false);
   }
 
   std::vector<Pick *> new_picks;
   for (auto pick : picks) {
-    if (delete_stations.find(pick->station) == delete_stations.end()) {
+    if (not delete_station[pick->station]) {
       new_picks.push_back(pick);
     }
   }
@@ -579,14 +583,14 @@ void OctoAssociator::filter_distance_criterion(
 }
 
 void OctoAssociator::filter_used_picks(
-    Node *node, const std::set<Pick *> &used_picks) const {
+    Node *node, const std::vector<bool> &used_picks) const {
   PickContainer new_picks;
   for (auto pick : node->picks.picks) {
-    if (used_picks.find(pick) == used_picks.end()) {
+    if (not used_picks[pick->idx]) {
       new_picks.push_back(pick);
     }
   }
-  node->picks = new_picks;
+  node->picks = std::move(new_picks);
 }
 
 std::pair<double, double>

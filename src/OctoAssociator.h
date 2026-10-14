@@ -169,7 +169,7 @@ private:
   filter_distance_criterion(const Volume &volume,
                             const std::vector<Pick *> &picks,
                             const std::vector<unsigned int> &active_stations);
-  void filter_used_picks(Node *node, const std::set<Pick *> &used_picks) const;
+  void filter_used_picks(Node *node, const std::vector<bool> &used_picks) const;
   std::vector<Event> deduplicate_events(const std::vector<Event> &events);
   int node_status(const Node *node);
   int queue_choice(const Node *node, unsigned int priority_queue_size);
@@ -180,8 +180,9 @@ private:
   Volume locate_edt(Volume &volume, const std::vector<Pick *> &picks);
   double edt_loss(Volume &volume, const std::vector<Pick *> &picks,
                   bool print_residuals);
-  // Returns true if an event has been created
-  bool create_event(std::vector<Event> &events, std::set<Pick *> &used_picks,
+  // Returns true if an event has been created. used_picks is a bitmap over
+  // pick indices, as pick indices are dense within one associate call.
+  bool create_event(std::vector<Event> &events, std::vector<bool> &used_picks,
                     PickGrouper &grouped_picks,
                     PickGroupCache &pick_group_cache,
                     const std::vector<unsigned int> &active_stations,

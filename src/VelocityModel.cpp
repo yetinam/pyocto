@@ -218,18 +218,13 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick,
   if (ix_max >= nx)
     ix_max = nx - 1;
 
-  // Find local maxima/minima
-  std::vector<int> local_minima, local_maxima;
-  double *times;
-  if (pick->phase == 'P') {
-    local_minima = local_minima_p[ix_min];
-    local_maxima = local_maxima_p[ix_max];
-    times = p_times;
-  } else {
-    local_minima = local_minima_s[ix_min];
-    local_maxima = local_maxima_s[ix_max];
-    times = s_times;
-  }
+  // Find local maxima/minima; only read, so reference the stored vectors
+  // instead of copying them
+  const std::vector<int> &local_minima =
+      pick->phase == 'P' ? local_minima_p[ix_min] : local_minima_s[ix_min];
+  const std::vector<int> &local_maxima =
+      pick->phase == 'P' ? local_maxima_p[ix_max] : local_maxima_s[ix_max];
+  double *times = pick->phase == 'P' ? p_times : s_times;
 
   int iz_min = floor(volume.z_min() / delta);
   int iz_max = ceil(volume.z_max() / delta);
