@@ -42,30 +42,30 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
   std::sort(picks.begin(), picks.end(),
             [](const Pick *a, const Pick *b) { return a->time < b->time; });
 
-  std::set<std::string> missing_stations;
+  std::vector<unsigned int> missing_stations;
   std::vector<Pick *> filtered_picks;
   for (const auto &pick : picks) {
-    if (config->velocity_model_location->stations.find(pick->station) !=
-            config->velocity_model_location->stations.end() and
-        config->velocity_model_association->stations.find(pick->station) !=
-            config->velocity_model_association->stations.end()) {
+    if (pick->station < config->velocity_model_location->stations.size() and
+        pick->station < config->velocity_model_association->stations.size()) {
       filtered_picks.push_back(pick);
     } else {
-      missing_stations.insert(pick->station);
+      missing_stations.push_back(pick->station);
     }
   }
 
   if (not missing_stations.empty()) {
+    std::sort(missing_stations.begin(), missing_stations.end());
+    missing_stations.erase(
+        std::unique(missing_stations.begin(), missing_stations.end()),
+        missing_stations.end());
     printf("Found stations with picks but without station information:");
     for (const auto &station : missing_stations)
-      printf(" %s", station.c_str());
+      printf(" %u", station);
     printf("\n");
   }
 
   double min_t = filtered_picks[0]->time;
   double max_t = filtered_picks[filtered_picks.size() - 1]->time;
-
-  PickGrouper grouped_picks = PickGrouper(filtered_picks);
 
   std::vector<Event> events = {};
   auto active_nodes = std::deque<Node *>();
@@ -221,11 +221,12 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
                                            unsigned int &thread_count) {
   // printf("Started thread %d\n", thread_id);
   std::set<Pick *> used_picks;
-  std::set<Station, StationCompare> active_stations;
+  std::vector<unsigned int> active_stations;
   std::deque<Node *> dfs_nodes;
   std::priority_queue<Node *, std::vector<Node *>, NodeCompare> active_nodes;
 
-  PickGrouper grouped_picks = PickGrouper({});
+  unsigned int n_stations = config->velocity_model_association->stations.size();
+  PickGrouper grouped_picks = PickGrouper({}, n_stations);
   PickGroupCache pick_group_cache(config->pick_cache_hash_size);
   unsigned long node_count = 0;
   Node *node;
@@ -259,7 +260,7 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
       // printf("Thread %d - got new base node\n", thread_id);
       // Reset processing status
       used_picks = {};
-      grouped_picks = PickGrouper(node->picks.picks);
+      grouped_picks = PickGrouper(node->picks.picks, n_stations);
       pick_group_cache.reset();
       active_stations = config->velocity_model_association->get_active_stations(
           node->picks.picks);
@@ -326,7 +327,7 @@ unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
 bool OctoAssociator::create_event(
     std::vector<Event> &events, std::set<Pick *> &used_picks,
     PickGrouper &grouped_picks, PickGroupCache &pick_group_cache,
-    const std::set<Station, StationCompare> &active_stations, Node *node) {
+    const std::vector<unsigned int> &active_stations, Node *node) {
   // printf("Creating event (%lu picks)\n", node->picks.n_picks());
   if (pick_group_cache.contains_group(node->picks.picks))
     return false;
@@ -338,16 +339,18 @@ bool OctoAssociator::create_event(
   std::vector<Pick *> new_picks;
   for (int i = 0; i < config->refinement_iterations; i++) {
     new_picks = {};
-    for (const auto &station_pair : grouped_picks.pick_groups) {
+    for (unsigned int station = 0; station < grouped_picks.pick_groups.size();
+         station++) {
+      if (grouped_picks.pick_groups[station].empty())
+        continue;
       for (char phase : {'P', 'S'}) {
-        auto tt = config->velocity_model_location->travel_time(
-            volume, station_pair.first, phase);
+        auto tt = config->velocity_model_location->travel_time(volume, station,
+                                                               phase);
         if (std::isnan(tt))
           continue;
 
-        auto pick =
-            grouped_picks.pick_at_time(station_pair.first, phase, volume.t + tt,
-                                       config->pick_match_tolerance);
+        auto pick = grouped_picks.pick_at_time(station, phase, volume.t + tt,
+                                               config->pick_match_tolerance);
         if (pick != nullptr and used_picks.find(pick) == used_picks.end()) {
           new_picks.push_back(pick);
         }
@@ -477,7 +480,7 @@ double OctoAssociator::edt_loss(Volume &volume,
     for (auto pick : picks) {
       auto tt = config->velocity_model_location->travel_time(volume, pick);
       auto diff = pick->time - (origin_time + tt);
-      // printf("%s %c %f\n", pick->station.c_str(), pick->phase, diff);
+      // printf("%u %c %f\n", pick->station, pick->phase, diff);
     }
   }
 
@@ -505,9 +508,9 @@ double OctoAssociator::edt_loss(Volume &volume,
 }
 
 struct DistanceQueueEntry {
-  DistanceQueueEntry(const Station &station, double dist, bool has_pick)
-      : station_id(station.id), dist(dist), has_pick(has_pick){};
-  std::string station_id;
+  DistanceQueueEntry(unsigned int station, double dist, bool has_pick)
+      : station(station), dist(dist), has_pick(has_pick){};
+  unsigned int station;
   double dist;
   bool has_pick;
 };
@@ -518,7 +521,7 @@ bool operator<(const DistanceQueueEntry &a, const DistanceQueueEntry &b) {
 
 std::vector<Pick *> OctoAssociator::filter_distance_criterion(
     const Volume &volume, const std::vector<Pick *> &picks,
-    const std::set<Station, StationCompare> &active_stations) {
+    const std::vector<unsigned int> &active_stations) {
   if (config->min_pick_fraction == 0)
     return picks; // Skip filtering calculations
   auto node_stations =
@@ -529,20 +532,22 @@ std::vector<Pick *> OctoAssociator::filter_distance_criterion(
       config->min_pick_fraction)
     return picks;
 
-  // Priority queue with <station_id, dist, has_pick> sorted by distance
+  // Priority queue with <station, dist, has_pick> sorted by distance
   std::priority_queue<DistanceQueueEntry> entries;
 
   for (const auto &station : active_stations) {
-    auto min_max_dist = min_max_hypo_dist(volume, station);
-    if (node_stations.find(station) ==
-        node_stations.end()) { // Station has no picks
+    const auto &station_obj =
+        config->velocity_model_association->stations[station];
+    auto min_max_dist = min_max_hypo_dist(volume, station_obj);
+    if (not std::binary_search(node_stations.begin(), node_stations.end(),
+                               station)) { // Station has no picks
       entries.emplace(station, min_max_dist.second, false);
     } else { // Station has picks
       entries.emplace(station, min_max_dist.first, true);
     }
   }
 
-  std::set<std::string> delete_stations;
+  std::set<unsigned int> delete_stations;
   double pick_count = 0, total_count = 0;
   while (not entries.empty()) {
     auto entry = entries.top();
@@ -551,7 +556,7 @@ std::vector<Pick *> OctoAssociator::filter_distance_criterion(
     if (entry.has_pick) {
       pick_count++;
       if (pick_count / total_count < config->min_pick_fraction)
-        delete_stations.insert(entry.station_id);
+        delete_stations.insert(entry.station);
     }
     if (pick_count / total_count >= config->min_pick_fraction)
       delete_stations.clear();
@@ -567,7 +572,7 @@ std::vector<Pick *> OctoAssociator::filter_distance_criterion(
 }
 
 void OctoAssociator::filter_distance_criterion(
-    Node *node, const std::set<Station, StationCompare> &active_stations) {
+    Node *node, const std::vector<unsigned int> &active_stations) {
   auto new_picks = filter_distance_criterion(node->volume, node->picks.picks,
                                              active_stations);
   node->picks = PickContainer(new_picks);
@@ -659,10 +664,17 @@ void Node::push_nodes(Node *node1, Node *node2) {
 }
 
 void PickContainer::push_back(Pick *pick) {
+  // Insert the station index sorted and without duplicates
   if (pick->phase == 'P') {
-    p_stations.insert(pick->station);
+    auto it =
+        std::lower_bound(p_stations.begin(), p_stations.end(), pick->station);
+    if (it == p_stations.end() or *it != pick->station)
+      p_stations.insert(it, pick->station);
   } else if (pick->phase == 'S') {
-    s_stations.insert(pick->station);
+    auto it =
+        std::lower_bound(s_stations.begin(), s_stations.end(), pick->station);
+    if (it == s_stations.end() or *it != pick->station)
+      s_stations.insert(it, pick->station);
   } else {
     printf("Unknown phase '%c'\n", pick->phase);
   }
@@ -670,10 +682,9 @@ void PickContainer::push_back(Pick *pick) {
 }
 
 unsigned long PickContainer::n_p_and_s_stations() const {
-  std::set<std::string> intersect;
+  std::vector<unsigned int> intersect;
   set_intersection(p_stations.begin(), p_stations.end(), s_stations.begin(),
-                   s_stations.end(),
-                   std::inserter(intersect, intersect.begin()));
+                   s_stations.end(), std::back_inserter(intersect));
   return intersect.size();
 }
 
@@ -731,31 +742,27 @@ void PickGroupCache::insert_group(const std::vector<Pick *> &picks) {
   cache[hash] = pick_idx;
 }
 
-PickGrouper::PickGrouper(const std::vector<Pick *> &picks) {
+PickGrouper::PickGrouper(const std::vector<Pick *> &picks,
+                         unsigned int n_stations)
+    : pick_groups(n_stations) {
   for (Pick *pick : picks) {
-    auto group = pick_groups.find(pick->station);
-    if (group == pick_groups.end()) {
-      pick_groups[pick->station] = {pick};
-    } else {
-      group->second.push_back(pick);
-    }
+    pick_groups[pick->station].push_back(pick);
   }
 
   for (auto &group : pick_groups) {
-    std::sort(group.second.begin(), group.second.end(),
+    std::sort(group.begin(), group.end(),
               [](const Pick *a, const Pick *b) { return a->time < b->time; });
   }
 }
 
-Pick *PickGrouper::pick_at_time(const std::string &station, char phase,
-                                double time, double tolerance) {
+Pick *PickGrouper::pick_at_time(unsigned int station, char phase, double time,
+                                double tolerance) {
   // Returns the chronologically first pick in the interval (time - tolerance,
   // time + tolerance) that fits the phase
-  auto group = pick_groups.find(station);
-  if (group == pick_groups.end())
+  if (station >= pick_groups.size())
     return nullptr;
 
-  const auto &group_picks = group->second;
+  const auto &group_picks = pick_groups[station];
   auto p0 = bin_search(time + tolerance, group_picks);
 
   if (group_picks[p0]->time < time - tolerance)

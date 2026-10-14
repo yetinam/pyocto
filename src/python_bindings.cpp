@@ -83,9 +83,10 @@ PYBIND11_MODULE(_core, m) {
            &StationSpecificVelocityModel1D::set_association_cutoff_distance);
 
   py::class_<Pick>(m, "Pick")
-      .def(py::init<int, double, std::string, char>())
+      .def(py::init<int, double, unsigned int, char>())
       .def_readonly("idx", &Pick::idx)
       .def_readonly("time", &Pick::time)
+      // Index into the station list of the velocity model, not the station id
       .def_readonly("station", &Pick::station)
       .def_readonly("phase", &Pick::phase);
 

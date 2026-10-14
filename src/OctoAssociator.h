@@ -93,15 +93,17 @@ public:
   explicit PickContainer(const std::vector<Pick *> &picks);
 
 private:
-  std::set<std::string> p_stations;
-  std::set<std::string> s_stations;
+  // Station indices, kept sorted and unique
+  std::vector<unsigned int> p_stations;
+  std::vector<unsigned int> s_stations;
 };
 
 class PickGrouper {
 public:
-  std::map<std::string, std::vector<Pick *>> pick_groups;
-  explicit PickGrouper(const std::vector<Pick *> &picks);
-  Pick *pick_at_time(const std::string &station, char phase, double time,
+  // Picks grouped by station index; groups are sorted by pick time
+  std::vector<std::vector<Pick *>> pick_groups;
+  PickGrouper(const std::vector<Pick *> &picks, unsigned int n_stations);
+  Pick *pick_at_time(unsigned int station, char phase, double time,
                      double tolerance);
 };
 
@@ -160,11 +162,13 @@ public:
 
 private:
   OctoTreeConfig *config;
-  void filter_distance_criterion(
-      Node *node, const std::set<Station, StationCompare> &active_stations);
-  std::vector<Pick *> filter_distance_criterion(
-      const Volume &volume, const std::vector<Pick *> &picks,
-      const std::set<Station, StationCompare> &active_stations);
+  void
+  filter_distance_criterion(Node *node,
+                            const std::vector<unsigned int> &active_stations);
+  std::vector<Pick *>
+  filter_distance_criterion(const Volume &volume,
+                            const std::vector<Pick *> &picks,
+                            const std::vector<unsigned int> &active_stations);
   void filter_used_picks(Node *node, const std::set<Pick *> &used_picks) const;
   std::vector<Event> deduplicate_events(const std::vector<Event> &events);
   int node_status(const Node *node);
@@ -180,7 +184,7 @@ private:
   bool create_event(std::vector<Event> &events, std::set<Pick *> &used_picks,
                     PickGrouper &grouped_picks,
                     PickGroupCache &pick_group_cache,
-                    const std::set<Station, StationCompare> &active_stations,
+                    const std::vector<unsigned int> &active_stations,
                     Node *node);
   std::pair<double, double> min_max_hypo_dist(const Volume &volume,
                                               const Station &station);

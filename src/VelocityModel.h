@@ -6,7 +6,6 @@
 #define OCTO_ASSOCIATOR_SRC_VELOCITYMODEL_H_
 
 #include <ciso646> // For windows compatibility
-#include <map>
 #include <stdlib.h>
 #include <utility>
 #include <vector>
@@ -21,16 +20,19 @@ namespace octoassociator {
 class VelocityModel {
 public:
   virtual bool contains(const Volume &volume, const Pick *pick) = 0;
-  virtual double travel_time(const Volume &volume, const std::string &station,
+  virtual double travel_time(const Volume &volume, unsigned int station,
                              char phase) = 0;
   double travel_time(const Volume &volume, const Pick *pick) {
     return travel_time(volume, pick->station, pick->phase);
   }; // Travel time from centroid to pick
   virtual void add_station(const Station &station) {
-    stations[station.id] = station;
+    // The pick station index is the position in this vector, resolved once
+    // when the stations are handed over from Python
+    stations.push_back(station);
   }
-  std::map<std::string, Station> stations;
-  std::set<Station, StationCompare>
+  std::vector<Station> stations;
+  // Returns the sorted indices of all stations with at least one pick
+  std::vector<unsigned int>
   get_active_stations(const std::vector<Pick *> &picks);
   /**
    * Determines the minimum and maximum distance of a point px to the interval
@@ -57,7 +59,7 @@ public:
         association_cutoff_distance(association_cutoff_distance),
         location_cutoff_distance(location_cutoff_distance){};
   bool contains(const Volume &volume, const Pick *pick) override;
-  double travel_time(const Volume &volume, const std::string &station,
+  double travel_time(const Volume &volume, unsigned int station,
                      char phase) override;
   void distance_volume_pick(const Volume &volume, double &min_dist,
                             double &max_dist, double &centroid_dist,
@@ -83,9 +85,16 @@ public:
     delete[] s_times;
   }
   bool contains(const Volume &volume, const Pick *pick) override;
-  double travel_time(const Volume &volume, const std::string &station,
+  double travel_time(const Volume &volume, unsigned int station,
                      char phase) override;
   double travel_time(double x, double z, char phase);
+
+  // Variants taking a station index local to this model. Used by
+  // StationSpecificVelocityModel1D, whose per-station models hold a single
+  // station, so the global pick index does not apply there.
+  bool contains(const Volume &volume, const Pick *pick, unsigned int station);
+  double travel_time_for_station(const Volume &volume, unsigned int station,
+                                 char phase);
 
   double get_delta() const { return delta; }
 
@@ -111,31 +120,32 @@ private:
 
 class StationSpecificVelocityModel1D : public VelocityModel {
 public:
-  std::map<std::string, VelocityModel1D *> models;
+  // Per-station models, parallel to the stations vector
+  std::vector<VelocityModel1D *> models;
   fs::path model_dir;
 
   explicit StationSpecificVelocityModel1D(char *path);
   ~StationSpecificVelocityModel1D() {
     // printf("Deleting StationSpecificVelocityModel1D\n");
-    for (auto &model : models) {
-      delete model.second;
+    for (auto *model : models) {
+      delete model;
     }
   }
   bool contains(const Volume &volume, const Pick *pick) override;
-  double travel_time(const Volume &volume, const std::string &station,
+  double travel_time(const Volume &volume, unsigned int station,
                      char phase) override;
   void add_station(const Station &station) override;
 
   void set_tolerance(double new_tolerance) {
     tolerance = new_tolerance;
-    for (auto &model : models) {
-      (model.second)->tolerance = new_tolerance;
+    for (auto *model : models) {
+      model->tolerance = new_tolerance;
     }
   }
   void set_association_cutoff_distance(double new_value) {
     association_cutoff_distance = new_value;
-    for (auto &model : models) {
-      (model.second)->association_cutoff_distance = new_value;
+    for (auto *model : models) {
+      model->association_cutoff_distance = new_value;
     }
   }
 

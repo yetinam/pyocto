@@ -17,9 +17,10 @@ namespace octoassociator {
 struct Pick {
   unsigned int idx;
   double time;
-  std::string station;
+  // Index into VelocityModel::stations, resolved once on the Python side
+  unsigned int station;
   char phase;
-  Pick(int idx, double time, std::string station, char phase)
+  Pick(int idx, double time, unsigned int station, char phase)
       : idx(idx), time(time), station(station), phase(phase){};
 
   bool operator<(const Pick &b) const {
@@ -27,7 +28,7 @@ struct Pick {
            (time == b.time and station == b.station and phase < b.phase);
   };
   char *to_string(char *output) const {
-    sprintf(output, "%s\t%c\t%f", station.c_str(), phase, time);
+    sprintf(output, "%u\t%c\t%f", station, phase, time);
     return output;
   };
 };
@@ -48,13 +49,6 @@ struct Station {
       return p_residual;
     return s_residual;
   };
-};
-
-class StationCompare {
-public:
-  bool operator()(const Station &a, const Station &b) const {
-    return a.id < b.id;
-  }
 };
 
 class Volume {
