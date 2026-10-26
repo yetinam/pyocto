@@ -680,17 +680,38 @@ class OctoAssociator:
         return config
 
     @staticmethod
-    def _convert_picks(picks: pd.DataFrame) -> list[backend.Pick]:
+    def _convert_picks(
+        picks: pd.DataFrame, station_index: dict[str, int]
+    ) -> list[backend.Pick]:
         """
-        Converts the picks from a data frame to a list of cpp objects
+        Converts the picks from a data frame to a list of cpp objects.
+        Station names are translated to station indices (positions in the
+        station list) once here, so the backend can work with plain indices.
+        The conversion is vectorized through numpy, as row-wise iteration is
+        slow for large pick sets.
 
         :param picks:
+        :param station_index: Mapping from station id to station index
         :return:
         """
-        return [
-            backend.Pick(i, row["time"], row["station"], row["phase"])
-            for i, (_, row) in enumerate(picks.iterrows())
-        ]
+        if len(picks) == 0:
+            return []
+
+        station_idx = picks["station"].map(station_index)
+        missing_stations = picks.loc[station_idx.isna(), "station"].unique()
+        if len(missing_stations) > 0:
+            logger.warning(
+                "Found stations with picks but without station information: "
+                + " ".join(sorted(missing_stations))
+            )
+
+        keep = station_idx.notna().to_numpy()
+        return backend.create_picks(
+            np.flatnonzero(keep),  # Preserve the original pick indices
+            picks["time"].to_numpy(dtype=np.float64)[keep],
+            station_idx[keep].to_numpy(dtype=np.int64),
+            picks["phase"].to_numpy(dtype="S1").view(np.uint8)[keep],
+        )
 
     @staticmethod
     def _convert_stations(stations: pd.DataFrame) -> list[backend.Station]:
@@ -780,8 +801,12 @@ class OctoAssociator:
                 f"Use the transform_stations function to add it or add it manually."
             )
 
-        picks_cpp = self._convert_picks(picks)
         stations_cpp = self._convert_stations(stations)
+        # Map station ids to their position in the station list once; the
+        # backend uses these indices instead of station names
+        station_index = {station.id: i for i, station in enumerate(stations_cpp)}
+
+        picks_cpp = self._convert_picks(picks, station_index)
 
         config = self._build_config(stations_cpp)
 
@@ -806,7 +831,7 @@ class OctoAssociator:
                     deep=True
                 )  # Only unused picks
                 picks_sub["idx2"] = np.arange(len(picks_sub))
-                picks_cpp = self._convert_picks(picks_sub)
+                picks_cpp = self._convert_picks(picks_sub, station_index)
 
                 config = self._build_config(stations_cpp, second_pass=True)
 

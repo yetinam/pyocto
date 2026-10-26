@@ -2,10 +2,19 @@
 // Created by munchmej on 17/06/23.
 //
 
+#include <algorithm>
 #include <cmath>
-#include <set>
+#include <fstream>
+#include <stdexcept>
 
 #include "VelocityModel.h"
+
+// On-disk travel time table format: nx and nz as 4-byte integers followed by
+// delta as an 8-byte double, then nx * nz P times and nx * nz S times as
+// 8-byte doubles
+static_assert(sizeof(int) == 4 && sizeof(double) == 8,
+              "Velocity model file format assumes 4-byte ints and 8-byte "
+              "doubles");
 
 std::pair<double, double>
 octoassociator::VelocityModel::min_max_dist(double x, double wx, double px) {
@@ -24,25 +33,27 @@ octoassociator::VelocityModel::min_max_dist(double x, double wx, double px) {
 
 namespace octoassociator {
 
-std::set<Station, StationCompare>
+std::vector<unsigned int>
 VelocityModel::get_active_stations(const std::vector<Pick *> &picks) {
-  std::set<Station, StationCompare> active_stations;
+  std::vector<unsigned int> active_stations;
   for (const auto &pick : picks) {
-    if (stations.find(pick->station) != stations.end()) {
-      auto station = stations[pick->station];
-      active_stations.insert(station);
+    if (pick->station < stations.size()) {
+      active_stations.push_back(pick->station);
     }
   }
+  std::sort(active_stations.begin(), active_stations.end());
+  active_stations.erase(
+      std::unique(active_stations.begin(), active_stations.end()),
+      active_stations.end());
   return active_stations;
 }
 
 bool VelocityModel0D::contains(const Volume &volume, const Pick *pick) {
-  auto station_it = stations.find(pick->station);
-  if (station_it == stations.end()) {
-    printf("Warning: Station %s not found\n", pick->station.c_str());
+  if (pick->station >= stations.size()) {
+    printf("Warning: Station %u not found\n", pick->station);
     return false;
   }
-  auto &station = station_it->second;
+  auto &station = stations[pick->station];
   double min_dist, max_dist, centroid_dist;
   distance_volume_pick(volume, min_dist, max_dist, centroid_dist, station);
 
@@ -91,15 +102,14 @@ void VelocityModel0D::distance_volume_pick(const Volume &volume,
            pow(volume.z - station.z, 2));
 }
 
-double VelocityModel0D::travel_time(const Volume &volume,
-                                    const std::string &station, char phase) {
+double VelocityModel0D::travel_time(const Volume &volume, unsigned int station,
+                                    char phase) {
   double velocity = get_phase_velocity(phase);
-  auto station_it = stations.find(station);
-  if (station_it == stations.end()) {
-    printf("Warning: Station %s not found\n", station.c_str());
+  if (station >= stations.size()) {
+    printf("Warning: Station %u not found\n", station);
     return NAN;
   }
-  auto &station_obj = station_it->second;
+  auto &station_obj = stations[station];
 
   double dist =
       sqrt(pow(volume.x - station_obj.x, 2) + pow(volume.y - station_obj.y, 2) +
@@ -112,33 +122,52 @@ double VelocityModel0D::travel_time(const Volume &volume,
   }
 }
 
-VelocityModel1D::VelocityModel1D(char *path) {
-  auto f = fopen(path, "rb");
-  fread(&nx, 4, 1, f);
-  fread(&nz, 4, 1, f);
-  fread(&delta, 8, 1, f);
+VelocityModel1D::VelocityModel1D(const std::string &path) {
+  std::ifstream f(path, std::ios::binary);
+  if (!f)
+    throw std::runtime_error("Cannot open velocity model file: " + path);
 
-  p_times = new double[nx * nz];
-  s_times = new double[nx * nz];
-  for (int i = 0; i < nx * nz; i++) {
-    fread(p_times + i, 8, 1, f);
-  }
-  for (int i = 0; i < nx * nz; i++) {
-    fread(s_times + i, 8, 1, f);
-  }
-  fclose(f);
+  f.read(reinterpret_cast<char *>(&nx), sizeof(nx));
+  f.read(reinterpret_cast<char *>(&nz), sizeof(nz));
+  f.read(reinterpret_cast<char *>(&delta), sizeof(delta));
+  if (!f)
+    throw std::runtime_error(
+        "Failed to read header from velocity model file: " + path);
+
+  if (nx <= 0 || nz <= 0)
+    throw std::runtime_error("Invalid velocity model header: nx and nz must be "
+                             "positive: " +
+                             path);
+  if (!std::isfinite(delta) || delta <= 0)
+    throw std::runtime_error("Invalid velocity model header: delta must be "
+                             "positive and finite: " +
+                             path);
+
+  p_times.resize(static_cast<size_t>(nx) * nz);
+  s_times.resize(static_cast<size_t>(nx) * nz);
+  f.read(reinterpret_cast<char *>(p_times.data()),
+         static_cast<std::streamsize>(p_times.size() * sizeof(double)));
+  f.read(reinterpret_cast<char *>(s_times.data()),
+         static_cast<std::streamsize>(s_times.size() * sizeof(double)));
+  if (!f)
+    throw std::runtime_error("Velocity model file is truncated: " + path);
 
   precalculate_extrema();
 }
 
-double VelocityModel1D::travel_time(const Volume &volume,
-                                    const std::string &station, char phase) {
-  auto station_it = stations.find(station);
-  if (station_it == stations.end()) {
-    printf("Warning: Station %s not found\n", station.c_str());
+double VelocityModel1D::travel_time(const Volume &volume, unsigned int station,
+                                    char phase) {
+  return travel_time_for_station(volume, station, phase);
+}
+
+double VelocityModel1D::travel_time_for_station(const Volume &volume,
+                                                unsigned int station,
+                                                char phase) {
+  if (station >= stations.size()) {
+    printf("Warning: Station %u not found\n", station);
     return NAN;
   }
-  const auto &station_obj = station_it->second;
+  const auto &station_obj = stations[station];
 
   double dx =
       sqrt(pow(volume.x - station_obj.x, 2) + pow(volume.y - station_obj.y, 2));
@@ -152,18 +181,12 @@ double VelocityModel1D::travel_time(double x, double z, char phase) {
   if (x > location_cutoff_distance)
     return NAN;
 
-  double *times;
-  if (phase == 'P')
-    times = p_times;
-  else
-    times = s_times;
+  const std::vector<double> &times = phase == 'P' ? p_times : s_times;
 
   int ix = floor(x / delta), iz = floor(z / delta);
   double ax = x / delta - ix, az = z / delta - iz;
 
-  if (ix >= nx - 1)
-    return NAN;
-  if (iz >= nz - 1)
+  if (ix < 0 || ix >= nx - 1 || iz < 0 || iz >= nz - 1)
     return NAN;
 
   return times[index(ix, iz)] * (1 - ax) * (1 - az) +
@@ -181,17 +204,21 @@ double VelocityModel1D::elevation_correction(char phase,
 }
 
 bool VelocityModel1D::contains(const Volume &volume, const Pick *pick) {
+  return contains(volume, pick, pick->station);
+}
+
+bool VelocityModel1D::contains(const Volume &volume, const Pick *pick,
+                               unsigned int station) {
   // The function is only exact up to grid points
   // Calculate min-max distance 2D
-  auto station_it = stations.find(pick->station);
-  if (station_it == stations.end()) {
-    printf("Warning: Station %s not found\n", pick->station.c_str());
+  if (station >= stations.size()) {
+    printf("Warning: Station %u not found\n", station);
     return false;
   }
-  auto &station = station_it->second;
+  auto &station_obj = stations[station];
 
-  auto x_dist = min_max_dist(volume.x, volume.wx, station.x);
-  auto y_dist = min_max_dist(volume.y, volume.wy, station.y);
+  auto x_dist = min_max_dist(volume.x, volume.wx, station_obj.x);
+  auto y_dist = min_max_dist(volume.y, volume.wy, station_obj.y);
 
   auto min_dist = sqrt(pow(x_dist.first, 2) + pow(y_dist.first, 2));
   auto max_dist = sqrt(pow(x_dist.second, 2) + pow(y_dist.second, 2));
@@ -199,6 +226,11 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick) {
   if (min_dist > association_cutoff_distance)
     return false;
   max_dist = std::min(association_cutoff_distance, max_dist);
+
+  // Volumes fully above 0 can't be reached
+  // Note: Station-specific models can fix this
+  if (volume.z_max() < 0)
+    return false;
 
   // Determine indices
   int ix_min = floor(min_dist / delta); // Take closer one (underestimate min)
@@ -208,24 +240,19 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick) {
   if (ix_max >= nx)
     ix_max = nx - 1;
 
-  // Find local maxima/minima
-  std::vector<int> local_minima, local_maxima;
-  double *times;
-  if (pick->phase == 'P') {
-    local_minima = local_minima_p[ix_min];
-    local_maxima = local_maxima_p[ix_max];
-    times = p_times;
-  } else {
-    local_minima = local_minima_s[ix_min];
-    local_maxima = local_maxima_s[ix_max];
-    times = s_times;
-  }
+  // Find local maxima/minima; only read, so reference the stored vectors
+  // instead of copying them
+  const std::vector<int> &local_minima =
+      pick->phase == 'P' ? local_minima_p[ix_min] : local_minima_s[ix_min];
+  const std::vector<int> &local_maxima =
+      pick->phase == 'P' ? local_maxima_p[ix_max] : local_maxima_s[ix_max];
+  const std::vector<double> &times = pick->phase == 'P' ? p_times : s_times;
 
   int iz_min = floor(volume.z_min() / delta);
   int iz_max = ceil(volume.z_max() / delta);
 
-  if (iz_min < 0)
-    iz_min = 0;
+  iz_min = std::max(0, iz_min);
+  iz_max = std::max(0, iz_max);
   if (iz_min >= nz)
     return false;
   if (iz_max >= nz)
@@ -250,12 +277,12 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick) {
   auto min_tt = *std::min_element(min_candidates.begin(), min_candidates.end());
   auto max_tt = *std::max_element(max_candidates.begin(), max_candidates.end());
 
-  double elev_correction = elevation_correction(pick->phase, station);
+  double elev_correction = elevation_correction(pick->phase, station_obj);
 
   auto t0 = volume.t_min() + min_tt + elev_correction +
-            station.residual(pick->phase) - tolerance;
+            station_obj.residual(pick->phase) - tolerance;
   auto t1 = volume.t_max() + max_tt + elev_correction +
-            station.residual(pick->phase) + tolerance;
+            station_obj.residual(pick->phase) + tolerance;
 
   return (t0 < pick->time and pick->time < t1);
 }
@@ -283,7 +310,8 @@ void VelocityModel1D::precalculate_extrema() {
   }
 }
 
-StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path)
+StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(
+    const std::string &path)
     : model_dir(path) {
   if (!fs::exists(model_dir) || !fs::is_directory(model_dir)) {
     printf("Error: %s does not exist or is not a directory\n",
@@ -300,14 +328,20 @@ StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path)
         "Please rebuild the model using create_model().");
   }
 
-  auto f = fopen(padding_info_file.string().c_str(), "rb");
-  fread(&n_padding, 4, 1, f);
-  fclose(f);
+  std::ifstream f(padding_info_file, std::ios::binary);
+  if (!f)
+    throw std::runtime_error("Cannot open padding information file: " +
+                             padding_info_file.string());
+  f.read(reinterpret_cast<char *>(&n_padding), sizeof(n_padding));
+  if (!f)
+    throw std::runtime_error("Failed to read padding information from: " +
+                             padding_info_file.string());
+  if (n_padding < 0)
+    throw std::runtime_error("Invalid padding information in: " +
+                             padding_info_file.string());
 }
 
 void StationSpecificVelocityModel1D::add_station(const Station &station) {
-  stations[station.id] = station;
-
   auto model_file_path = model_dir / (station.id + std::string(".pyocto"));
   if (!fs::exists(model_file_path) || !fs::is_regular_file(model_file_path)) {
     std::string err_msg = std::string("Travel time table for station") +
@@ -315,66 +349,58 @@ void StationSpecificVelocityModel1D::add_station(const Station &station) {
     throw std::runtime_error(err_msg);
   }
 
-  // using a pointer instead of a local variable, to avoid double free of
-  // ptimes/stimes
-  VelocityModel1D *model = new VelocityModel1D(model_file_path.string().data());
-  models.insert(std::pair<std::string, VelocityModel1D *>(station.id, model));
+  // Each per-station model owns its travel time tables; unique_ptr manages
+  // their lifetime. Construct before pushing, so a failed load leaves no
+  // half-added station behind.
+  auto model = std::make_unique<VelocityModel1D>(model_file_path.string());
+  stations.push_back(station);
+  models.push_back(std::move(model));
   Station station_no_z = Station(station.id, station.x, station.y, 0.0,
                                  station.p_residual, station.s_residual);
-  models[station.id]->add_station(station_no_z);
-  models[station.id]->tolerance = tolerance;
-  models[station.id]->association_cutoff_distance = association_cutoff_distance;
-  models[station.id]->surface_p_velocity = 1e10;
-  models[station.id]->surface_s_velocity = 1e10;
+  models.back()->add_station(station_no_z);
+  models.back()->tolerance = tolerance;
+  models.back()->association_cutoff_distance = association_cutoff_distance;
+  models.back()->surface_p_velocity = 1e10;
+  models.back()->surface_s_velocity = 1e10;
 }
 
 bool StationSpecificVelocityModel1D::contains(const Volume &volume,
                                               const Pick *pick) {
-  auto station_it = stations.find(pick->station);
-  if (station_it == stations.end()) {
-    printf("Warning: Station %s not found\n", pick->station.c_str());
+  if (pick->station >= stations.size()) {
+    printf("Warning: Station %u not found\n", pick->station);
     return false;
   }
-  auto &station = station_it->second;
+  auto &station = stations[pick->station];
+  auto *current_model = models[pick->station].get();
 
-  auto model_it = models.find(pick->station);
-  auto &current_model = model_it->second;
-
-  // Note that we shouldn't use
-  // ((current_model->stations).find(pick->station)->second).z here, because we
-  // have set 0 elevation for stations in each VelocityModel1D* member to
+  // Note that we shouldn't use (current_model->stations)[...].z here, because
+  // we have set 0 elevation for stations in each VelocityModel1D* member to
   // disable elevation correction
   double z_shift = -station.z + n_padding * current_model->get_delta();
   const Volume volume_new_z =
       Volume(volume.x, volume.y, volume.z + z_shift, volume.t, volume.wx,
              volume.wy, volume.wz, volume.wt);
-  return current_model->contains(volume_new_z, pick);
+  // Each per-station model holds a single station, stored at local index 0
+  return current_model->contains(volume_new_z, pick, 0);
 }
 
 double StationSpecificVelocityModel1D::travel_time(const Volume &volume,
-                                                   const std::string &station,
+                                                   unsigned int station,
                                                    char phase) {
-  auto station_it = stations.find(station);
-  if (station_it == stations.end()) {
-    printf("Warning: Station %s not found\n", station.c_str());
+  if (station >= stations.size()) {
+    printf("Warning: Station %u not found\n", station);
     return NAN;
   }
 
-  auto model_it = models.find(station);
-  if (model_it == models.end()) {
-    printf("Warning: Travel time table for station %s not found\n",
-           station.c_str());
-    return NAN;
-  }
-
-  const auto &station_obj = station_it->second;
-  auto &current_model = model_it->second;
+  const auto &station_obj = stations[station];
+  auto *current_model = models[station].get();
 
   double z_shift = -station_obj.z + n_padding * current_model->get_delta();
   const Volume volume_new_z =
       Volume(volume.x, volume.y, volume.z + z_shift, volume.t, volume.wx,
              volume.wy, volume.wz, volume.wt);
-  return current_model->travel_time(volume_new_z, station, phase);
+  // Each per-station model holds a single station, stored at local index 0
+  return current_model->travel_time_for_station(volume_new_z, 0, phase);
 }
 
 } // namespace octoassociator

@@ -5,6 +5,7 @@
 #include "OctoAssociator.h"
 #include "VelocityModel.h"
 #include "types.h"
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -15,6 +16,27 @@ namespace octoassociator {
 PYBIND11_MODULE(_core, m) {
   m.doc() = "pybind11 example plugin"; // optional module docstring
 
+  // Batch construction of picks from numpy arrays; much faster than creating
+  // one Pick object per data frame row from Python
+  m.def("create_picks",
+        [](py::array_t<int, py::array::c_style | py::array::forcecast> idx,
+           py::array_t<double, py::array::c_style | py::array::forcecast> time,
+           py::array_t<int, py::array::c_style | py::array::forcecast> station,
+           py::array_t<unsigned char, py::array::c_style | py::array::forcecast>
+               phase) {
+          auto n = idx.shape(0);
+          py::list out(n);
+          auto idx_v = idx.unchecked<1>();
+          auto time_v = time.unchecked<1>();
+          auto station_v = station.unchecked<1>();
+          auto phase_v = phase.unchecked<1>();
+          for (py::ssize_t i = 0; i < n; i++) {
+            out[i] = py::cast(Pick(static_cast<int>(idx_v[i]), time_v[i],
+                                   static_cast<unsigned int>(station_v[i]),
+                                   static_cast<char>(phase_v[i])));
+          }
+          return out;
+        });
   py::class_<OctoTreeConfig>(m, "OctoTreeConfig")
       .def(py::init())
       .def_readwrite("min_node_size", &OctoTreeConfig::min_node_size)
@@ -66,7 +88,7 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("tolerance", &VelocityModel0D::tolerance);
 
   py::class_<VelocityModel1D>(m, "VelocityModel1D", velocity_model)
-      .def(py::init<char *>())
+      .def(py::init<std::string>())
       .def_readwrite("surface_p_velocity", &VelocityModel1D::surface_p_velocity)
       .def_readwrite("surface_s_velocity", &VelocityModel1D::surface_s_velocity)
       .def_readwrite("association_cutoff_distance",
@@ -77,15 +99,16 @@ PYBIND11_MODULE(_core, m) {
 
   py::class_<StationSpecificVelocityModel1D>(
       m, "StationSpecificVelocityModel1D", velocity_model)
-      .def(py::init<char *>())
+      .def(py::init<std::string>())
       .def("set_tolerance", &StationSpecificVelocityModel1D::set_tolerance)
       .def("set_association_cutoff_distance",
            &StationSpecificVelocityModel1D::set_association_cutoff_distance);
 
   py::class_<Pick>(m, "Pick")
-      .def(py::init<int, double, std::string, char>())
+      .def(py::init<int, double, unsigned int, char>())
       .def_readonly("idx", &Pick::idx)
       .def_readonly("time", &Pick::time)
+      // Index into the station list of the velocity model, not the station id
       .def_readonly("station", &Pick::station)
       .def_readonly("phase", &Pick::phase);
 
