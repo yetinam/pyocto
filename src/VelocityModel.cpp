@@ -4,8 +4,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <stdexcept>
 
 #include "VelocityModel.h"
+
+// On-disk travel time table format: nx and nz as 4-byte integers followed by
+// delta as an 8-byte double, then nx * nz P times and nx * nz S times as
+// 8-byte doubles
+static_assert(sizeof(int) == 4 && sizeof(double) == 8,
+              "Velocity model file format assumes 4-byte ints and 8-byte "
+              "doubles");
 
 std::pair<double, double>
 octoassociator::VelocityModel::min_max_dist(double x, double wx, double px) {
@@ -113,21 +122,35 @@ double VelocityModel0D::travel_time(const Volume &volume, unsigned int station,
   }
 }
 
-VelocityModel1D::VelocityModel1D(char *path) {
-  auto f = fopen(path, "rb");
-  fread(&nx, 4, 1, f);
-  fread(&nz, 4, 1, f);
-  fread(&delta, 8, 1, f);
+VelocityModel1D::VelocityModel1D(const std::string &path) {
+  std::ifstream f(path, std::ios::binary);
+  if (!f)
+    throw std::runtime_error("Cannot open velocity model file: " + path);
 
-  p_times = new double[nx * nz];
-  s_times = new double[nx * nz];
-  for (int i = 0; i < nx * nz; i++) {
-    fread(p_times + i, 8, 1, f);
-  }
-  for (int i = 0; i < nx * nz; i++) {
-    fread(s_times + i, 8, 1, f);
-  }
-  fclose(f);
+  f.read(reinterpret_cast<char *>(&nx), sizeof(nx));
+  f.read(reinterpret_cast<char *>(&nz), sizeof(nz));
+  f.read(reinterpret_cast<char *>(&delta), sizeof(delta));
+  if (!f)
+    throw std::runtime_error(
+        "Failed to read header from velocity model file: " + path);
+
+  if (nx <= 0 || nz <= 0)
+    throw std::runtime_error("Invalid velocity model header: nx and nz must be "
+                             "positive: " +
+                             path);
+  if (!std::isfinite(delta) || delta <= 0)
+    throw std::runtime_error("Invalid velocity model header: delta must be "
+                             "positive and finite: " +
+                             path);
+
+  p_times.resize(static_cast<size_t>(nx) * nz);
+  s_times.resize(static_cast<size_t>(nx) * nz);
+  f.read(reinterpret_cast<char *>(p_times.data()),
+         static_cast<std::streamsize>(p_times.size() * sizeof(double)));
+  f.read(reinterpret_cast<char *>(s_times.data()),
+         static_cast<std::streamsize>(s_times.size() * sizeof(double)));
+  if (!f)
+    throw std::runtime_error("Velocity model file is truncated: " + path);
 
   precalculate_extrema();
 }
@@ -158,11 +181,7 @@ double VelocityModel1D::travel_time(double x, double z, char phase) {
   if (x > location_cutoff_distance)
     return NAN;
 
-  double *times;
-  if (phase == 'P')
-    times = p_times;
-  else
-    times = s_times;
+  const std::vector<double> &times = phase == 'P' ? p_times : s_times;
 
   int ix = floor(x / delta), iz = floor(z / delta);
   double ax = x / delta - ix, az = z / delta - iz;
@@ -227,7 +246,7 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick,
       pick->phase == 'P' ? local_minima_p[ix_min] : local_minima_s[ix_min];
   const std::vector<int> &local_maxima =
       pick->phase == 'P' ? local_maxima_p[ix_max] : local_maxima_s[ix_max];
-  double *times = pick->phase == 'P' ? p_times : s_times;
+  const std::vector<double> &times = pick->phase == 'P' ? p_times : s_times;
 
   int iz_min = floor(volume.z_min() / delta);
   int iz_max = ceil(volume.z_max() / delta);
@@ -291,7 +310,8 @@ void VelocityModel1D::precalculate_extrema() {
   }
 }
 
-StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path)
+StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(
+    const std::string &path)
     : model_dir(path) {
   if (!fs::exists(model_dir) || !fs::is_directory(model_dir)) {
     printf("Error: %s does not exist or is not a directory\n",
@@ -308,9 +328,17 @@ StationSpecificVelocityModel1D::StationSpecificVelocityModel1D(char *path)
         "Please rebuild the model using create_model().");
   }
 
-  auto f = fopen(padding_info_file.string().c_str(), "rb");
-  fread(&n_padding, 4, 1, f);
-  fclose(f);
+  std::ifstream f(padding_info_file, std::ios::binary);
+  if (!f)
+    throw std::runtime_error("Cannot open padding information file: " +
+                             padding_info_file.string());
+  f.read(reinterpret_cast<char *>(&n_padding), sizeof(n_padding));
+  if (!f)
+    throw std::runtime_error("Failed to read padding information from: " +
+                             padding_info_file.string());
+  if (n_padding < 0)
+    throw std::runtime_error("Invalid padding information in: " +
+                             padding_info_file.string());
 }
 
 void StationSpecificVelocityModel1D::add_station(const Station &station) {
@@ -321,11 +349,12 @@ void StationSpecificVelocityModel1D::add_station(const Station &station) {
     throw std::runtime_error(err_msg);
   }
 
-  // using a pointer instead of a local variable, to avoid double free of
-  // ptimes/stimes
-  VelocityModel1D *model = new VelocityModel1D(model_file_path.string().data());
+  // Each per-station model owns its travel time tables; unique_ptr manages
+  // their lifetime. Construct before pushing, so a failed load leaves no
+  // half-added station behind.
+  auto model = std::make_unique<VelocityModel1D>(model_file_path.string());
   stations.push_back(station);
-  models.push_back(model);
+  models.push_back(std::move(model));
   Station station_no_z = Station(station.id, station.x, station.y, 0.0,
                                  station.p_residual, station.s_residual);
   models.back()->add_station(station_no_z);
@@ -342,7 +371,7 @@ bool StationSpecificVelocityModel1D::contains(const Volume &volume,
     return false;
   }
   auto &station = stations[pick->station];
-  auto *current_model = models[pick->station];
+  auto *current_model = models[pick->station].get();
 
   // Note that we shouldn't use (current_model->stations)[...].z here, because
   // we have set 0 elevation for stations in each VelocityModel1D* member to
@@ -364,7 +393,7 @@ double StationSpecificVelocityModel1D::travel_time(const Volume &volume,
   }
 
   const auto &station_obj = stations[station];
-  auto *current_model = models[station];
+  auto *current_model = models[station].get();
 
   double z_shift = -station_obj.z + n_padding * current_model->get_delta();
   const Volume volume_new_z =

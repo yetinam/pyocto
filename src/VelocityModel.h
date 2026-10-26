@@ -6,6 +6,7 @@
 #define OCTO_ASSOCIATOR_SRC_VELOCITYMODEL_H_
 
 #include <ciso646> // For windows compatibility
+#include <memory>
 #include <stdlib.h>
 #include <utility>
 #include <vector>
@@ -79,11 +80,7 @@ public:
 
   double surface_p_velocity = 5.3;
   double surface_s_velocity = 3.1;
-  explicit VelocityModel1D(char *path);
-  ~VelocityModel1D() {
-    delete[] p_times;
-    delete[] s_times;
-  }
+  explicit VelocityModel1D(const std::string &path);
   bool contains(const Volume &volume, const Pick *pick) override;
   double travel_time(const Volume &volume, unsigned int station,
                      char phase) override;
@@ -99,15 +96,15 @@ public:
   double get_delta() const { return delta; }
 
 private:
-  int nx{}, nz{};  // Number of nodes in each direction
-  double delta{};  // Spacing between nodes
-  double *p_times; // 2D array of travel times
-  double *s_times; // 2D array of travel times
+  int nx{}, nz{};              // Number of nodes in each direction
+  double delta{};              // Spacing between nodes
+  std::vector<double> p_times; // 2D array of travel times, indexed via index()
+  std::vector<double> s_times; // 2D array of travel times, indexed via index()
 
   double elevation_correction(char phase, const Station &station) const;
   int index(int x, int z) const {
     return x * nz + z;
-  }; // Helper function for indexing dynamic 2D array
+  }; // Helper function for indexing the 2D arrays
 
   void precalculate_extrema();
   // There vectors hold for each index x the indices of the local minima/maxima
@@ -121,16 +118,10 @@ private:
 class StationSpecificVelocityModel1D : public VelocityModel {
 public:
   // Per-station models, parallel to the stations vector
-  std::vector<VelocityModel1D *> models;
+  std::vector<std::unique_ptr<VelocityModel1D>> models;
   fs::path model_dir;
 
-  explicit StationSpecificVelocityModel1D(char *path);
-  ~StationSpecificVelocityModel1D() {
-    // printf("Deleting StationSpecificVelocityModel1D\n");
-    for (auto *model : models) {
-      delete model;
-    }
-  }
+  explicit StationSpecificVelocityModel1D(const std::string &path);
   bool contains(const Volume &volume, const Pick *pick) override;
   double travel_time(const Volume &volume, unsigned int station,
                      char phase) override;
@@ -138,13 +129,13 @@ public:
 
   void set_tolerance(double new_tolerance) {
     tolerance = new_tolerance;
-    for (auto *model : models) {
+    for (auto &model : models) {
       model->tolerance = new_tolerance;
     }
   }
   void set_association_cutoff_distance(double new_value) {
     association_cutoff_distance = new_value;
-    for (auto *model : models) {
+    for (auto &model : models) {
       model->association_cutoff_distance = new_value;
     }
   }

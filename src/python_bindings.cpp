@@ -88,7 +88,7 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("tolerance", &VelocityModel0D::tolerance);
 
   py::class_<VelocityModel1D>(m, "VelocityModel1D", velocity_model)
-      .def(py::init<char *>())
+      .def(py::init<std::string>())
       .def_readwrite("surface_p_velocity", &VelocityModel1D::surface_p_velocity)
       .def_readwrite("surface_s_velocity", &VelocityModel1D::surface_s_velocity)
       .def_readwrite("association_cutoff_distance",
@@ -99,7 +99,7 @@ PYBIND11_MODULE(_core, m) {
 
   py::class_<StationSpecificVelocityModel1D>(
       m, "StationSpecificVelocityModel1D", velocity_model)
-      .def(py::init<char *>())
+      .def(py::init<std::string>())
       .def("set_tolerance", &StationSpecificVelocityModel1D::set_tolerance)
       .def("set_association_cutoff_distance",
            &StationSpecificVelocityModel1D::set_association_cutoff_distance);
