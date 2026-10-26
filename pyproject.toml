@@ -30,7 +30,7 @@ dependencies = [
 test = [
     "pytest>=7.4.2",
     "pyrocko>=2023.06.29",
-    "pyarrow>=12.0.1",
+    "pyarrow==25.0.1",  # Pinned version to avoid CI issue with Python 3.11
 ]
 
 [tool.scikit-build]
