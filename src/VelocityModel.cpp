@@ -167,9 +167,7 @@ double VelocityModel1D::travel_time(double x, double z, char phase) {
   int ix = floor(x / delta), iz = floor(z / delta);
   double ax = x / delta - ix, az = z / delta - iz;
 
-  if (ix >= nx - 1)
-    return NAN;
-  if (iz >= nz - 1)
+  if (ix < 0 || ix >= nx - 1 || iz < 0 || iz >= nz - 1)
     return NAN;
 
   return times[index(ix, iz)] * (1 - ax) * (1 - az) +
@@ -210,6 +208,11 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick,
     return false;
   max_dist = std::min(association_cutoff_distance, max_dist);
 
+  // Volumes fully above 0 can't be reached
+  // Note: Station-specific models can fix this
+  if (volume.z_max() < 0)
+    return false;
+
   // Determine indices
   int ix_min = floor(min_dist / delta); // Take closer one (underestimate min)
   int ix_max = ceil(max_dist / delta);  // Take farther one (overestimate max)
@@ -229,8 +232,8 @@ bool VelocityModel1D::contains(const Volume &volume, const Pick *pick,
   int iz_min = floor(volume.z_min() / delta);
   int iz_max = ceil(volume.z_max() / delta);
 
-  if (iz_min < 0)
-    iz_min = 0;
+  iz_min = std::max(0, iz_min);
+  iz_max = std::max(0, iz_max);
   if (iz_min >= nz)
     return false;
   if (iz_max >= nz)

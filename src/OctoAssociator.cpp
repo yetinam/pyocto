@@ -64,6 +64,9 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
     printf("\n");
   }
 
+  if (filtered_picks.empty())
+    return {};
+
   double min_t = filtered_picks[0]->time;
   double max_t = filtered_picks[filtered_picks.size() - 1]->time;
 
