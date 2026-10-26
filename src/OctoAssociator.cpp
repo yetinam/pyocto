@@ -100,10 +100,17 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
     min_t += config->time_slicing;
   }
 
+  // Upper bound (exclusive) on the pick indices passed to process_tree; must
+  // be computed here, before any thread touches the nodes
+  unsigned int max_pick_idx = 0;
+  for (const auto *base_node : active_nodes)
+    for (const auto *pick : base_node->picks.picks)
+      max_pick_idx = std::max(max_pick_idx, pick->idx + 1);
+
 #ifdef SINGLE_THREAD
   unsigned int thread_count = config->n_threads;
   py::gil_scoped_release release;
-  process_tree(events, active_nodes, 0, thread_count);
+  process_tree(events, active_nodes, max_pick_idx, 0, thread_count);
   py::gil_scoped_acquire acquire;
 #else
   std::vector<std::thread> threads;
@@ -111,7 +118,8 @@ std::vector<Event> OctoAssociator::associate(std::vector<Pick *> &picks) {
   threads.reserve(config->n_threads);
   for (int i = 0; i < config->n_threads; i++) {
     threads.emplace_back(&OctoAssociator::process_tree, this, std::ref(events),
-                         std::ref(active_nodes), i, std::ref(thread_count));
+                         std::ref(active_nodes), max_pick_idx, i,
+                         std::ref(thread_count));
   }
 
   py::gil_scoped_release release;
@@ -218,14 +226,13 @@ OctoAssociator::deduplicate_events(const std::vector<Event> &events) {
 
 unsigned long OctoAssociator::process_tree(std::vector<Event> &events,
                                            std::deque<Node *> &base_nodes,
+                                           unsigned int max_pick_idx,
                                            int thread_id,
                                            unsigned int &thread_count) {
   // printf("Started thread %d\n", thread_id);
   // Pick indices are dense within one associate call, so a bitmap is sufficient
-  unsigned int max_pick_idx = 0;
-  for (const auto *base_node : base_nodes)
-    for (const auto *pick : base_node->picks.picks)
-      max_pick_idx = std::max(max_pick_idx, pick->idx + 1);
+  // The bound is computed in associate(); scanning base_nodes here would race
+  // with other threads popping, mutating and deleting nodes
   std::vector<bool> used_picks(max_pick_idx, false);
   std::vector<unsigned int> active_stations;
   std::deque<Node *> dfs_nodes;

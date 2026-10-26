@@ -174,8 +174,13 @@ private:
   int node_status(const Node *node);
   int queue_choice(const Node *node, unsigned int priority_queue_size);
   bool picks_sufficient(const PickContainer &picks);
+  // max_pick_idx is an upper bound (exclusive) on the pick indices occurring
+  // in base_nodes; computed once in associate() before the threads start, as
+  // scanning base_nodes from the worker threads would race with other threads
+  // popping, processing and deleting nodes
   unsigned long process_tree(std::vector<Event> &events,
-                             std::deque<Node *> &base_nodes, int thread_id,
+                             std::deque<Node *> &base_nodes,
+                             unsigned int max_pick_idx, int thread_id,
                              unsigned int &thread_count);
   Volume locate_edt(Volume &volume, const std::vector<Pick *> &picks);
   double edt_loss(Volume &volume, const std::vector<Pick *> &picks,
